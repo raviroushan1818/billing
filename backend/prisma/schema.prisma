@@ -1,0 +1,770 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  CLIENT_ADMIN
+  BILLING_OPERATOR
+  ACCOUNTANT
+  VIEWER
+}
+
+enum BusinessProfile {
+  HOSPITAL
+  SCHOOL
+  COMMERCIAL
+  CLINIC
+  RETAIL
+  GENERIC
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum SupplyType {
+  B2B
+  B2C
+  B2CL
+}
+
+enum DocumentType {
+  TAX_INVOICE
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  FINALIZED
+  VOID
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum StockMovementType {
+  ADJUST
+  SALE
+  RETURN
+  OPENING
+  PURCHASE
+  TRANSFER
+}
+
+enum PurchaseStatus {
+  DRAFT
+  FINALIZED
+  VOID
+}
+
+enum EwayStatus {
+  DRAFT
+  GENERATED
+  CANCELLED
+  FAILED
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+}
+
+enum EinvoiceStatus {
+  NOT_APPLICABLE
+  PENDING
+  PUSHED
+  FAILED
+}
+
+enum MediaPurpose {
+  LOGO
+  INVOICE_PDF
+  ATTACHMENT
+  LETTERHEAD
+}
+
+enum InvoiceTheme {
+  CLASSIC
+  MODERN
+  COMPACT
+  BOLD
+}
+
+enum BrandAlign {
+  LEFT
+  CENTER
+  RIGHT
+}
+
+enum HeaderMode {
+  COMPOSED
+  LETTERHEAD
+}
+
+/// Platform tenant (client). SuperAdmin lives under reserved clientId PLATFORM.
+model Tenant {
+  id           String          @id @default(uuid())
+  clientId     String          @unique
+  name         String
+  legalName    String?
+  profileType  BusinessProfile @default(GENERIC)
+  status       TenantStatus    @default(TRIAL)
+  planCode     String          @default("STANDARD")
+  maxUsers     Int             @default(10)
+  maxInvoices  Int             @default(5000)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  users        User[]
+  profileConfig TenantProfileConfig?
+  brandTemplate BrandTemplate?
+  gstSettings  GstSettings?
+  parties      Party[]
+  items        ItemMaster[]
+  invoices     Invoice[]
+  sequences    InvoiceSequence[]
+  media        MediaObject[]
+  auditLogs    AuditLog[]
+  integrations TenantIntegrationSettings?
+  subscriptions TenantSubscription[]
+  paymentOrders PaymentOrder[]
+  workspaceNotes WorkspaceNote[]
+  godowns      Godown[]
+  purchases    PurchaseBill[]
+  ewayBills    EwayBill[]
+
+  @@index([status])
+  @@index([profileType])
+}
+
+model TenantProfileConfig {
+  id                String          @id @default(uuid())
+  tenantId          String          @unique
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profileType       BusinessProfile
+  customFieldSchema Json            @default("{}")
+  invoiceTitle      String          @default("TAX INVOICE")
+  partyLabel        String          @default("Customer")
+  partyIdLabel      String          @default("Customer Code")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model BrandTemplate {
+  id             String       @id @default(uuid())
+  tenantId       String       @unique
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logoGcsKey     String?
+  headerHtml     String       @default("")
+  footerHtml     String       @default("")
+  letterhead     String?
+  primaryColor   String       @default("#0f4c81")
+  invoiceTitle   String       @default("TAX INVOICE")
+  showGstin      Boolean      @default(true)
+  logoWidthPx    Int          @default(72)
+  bannerHeightPx Int          @default(100)
+  invoiceTheme   InvoiceTheme @default(CLASSIC)
+  logoAlign      BrandAlign   @default(LEFT)
+  headerMode     HeaderMode   @default(COMPOSED)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model TenantIntegrationSettings {
+  id                 String   @id @default(uuid())
+  tenantId           String   @unique
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  smtpHost           String?
+  smtpPort           Int?
+  smtpUser           String?
+  smtpPassEnc        String?
+  smtpSecure         Boolean  @default(true)
+  smtpFromEmail      String?
+  smtpFromName       String?
+  waPhoneNumberId    String?
+  waAccessTokenEnc   String?
+  waApiVersion       String   @default("v19.0")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model GstSettings {
+  id               String   @id @default(uuid())
+  tenantId         String   @unique
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  gstin            String?
+  legalName        String
+  tradeName        String?
+  addressLine1     String
+  addressLine2     String?
+  city             String
+  state            String
+  stateCode        String
+  pincode          String
+  email            String?
+  phone            String?
+  fyStartMonth     Int      @default(4)
+  defaultGstRate   Decimal  @default(18) @db.Decimal(5, 2)
+  eInvoiceEnabled  Boolean  @default(false)
+  eInvoiceThreshold Decimal @default(0) @db.Decimal(14, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
+  phone        String?
+  password     String
+  firstName    String
+  lastName     String
+  role         UserRole
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  auditLogs    AuditLog[]
+  invoicesCreated Invoice[] @relation("InvoiceCreatedBy")
+  invoicesVoided  Invoice[] @relation("InvoiceVoidedBy")
+  workspaceNotes  WorkspaceNote[] @relation("NoteCreatedBy")
+  subscriptionsAssigned TenantSubscription[] @relation("SubscriptionAssignedBy")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+}
+
+model Party {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  phone         String?
+  email         String?
+  address       String?
+  city          String?
+  state         String?
+  stateCode     String?
+  pincode       String?
+  gstin         String?
+  /// Profile-specific primary id (UHID / Admission No / Customer Code)
+  externalId    String?
+  referredBy    String?
+  customFields  Json     @default("{}")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invoices      Invoice[]
+  workspaceNotes WorkspaceNote[]
+  purchases     PurchaseBill[]
+
+  @@index([tenantId])
+  @@index([tenantId, phone])
+  @@index([tenantId, externalId])
+  @@index([tenantId, gstin])
+  @@index([tenantId, name])
+}
+
+model ItemMaster {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  hsnSac      String?
+  unit        String   @default("NOS")
+  rate        Decimal  @db.Decimal(14, 2)
+  gstRate     Decimal  @default(18) @db.Decimal(5, 2)
+  barcode     String?
+  trackStock  Boolean  @default(false)
+  stockQty    Decimal  @default(0) @db.Decimal(14, 3)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  stockMoves  StockMovement[]
+  godownStocks ItemStock[]
+  purchaseLines PurchaseLine[]
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, barcode])
+}
+
+model Godown {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  code      String?
+  address   String?
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  stocks    ItemStock[]
+  stockMoves StockMovement[]
+  purchases PurchaseBill[]
+  invoiceLines InvoiceLine[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+}
+
+model ItemStock {
+  id       String     @id @default(uuid())
+  tenantId String
+  itemId   String
+  item     ItemMaster @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  godownId String
+  godown   Godown     @relation(fields: [godownId], references: [id], onDelete: Cascade)
+  qty      Decimal    @default(0) @db.Decimal(14, 3)
+  updatedAt DateTime  @updatedAt
+
+  @@unique([itemId, godownId])
+  @@index([tenantId, godownId])
+}
+
+model StockMovement {
+  id          String            @id @default(uuid())
+  tenantId    String
+  itemId      String
+  item        ItemMaster        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  godownId    String?
+  godown      Godown?           @relation(fields: [godownId], references: [id], onDelete: SetNull)
+  type        StockMovementType
+  qtyDelta    Decimal           @db.Decimal(14, 3)
+  qtyAfter    Decimal           @db.Decimal(14, 3)
+  note        String?
+  invoiceId   String?
+  purchaseId  String?
+  createdById String?
+  createdAt   DateTime          @default(now())
+
+  @@index([tenantId, itemId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, godownId])
+}
+
+model InvoiceSequence {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fy       String
+  prefix   String @default("INV")
+  nextNo   Int    @default(1)
+
+  @@unique([tenantId, fy, prefix])
+  @@index([tenantId])
+}
+
+model Invoice {
+  id              String         @id @default(uuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  billNo          String
+  documentType    DocumentType   @default(TAX_INVOICE)
+  status          InvoiceStatus  @default(DRAFT)
+  invoiceDate     DateTime       @default(now())
+  fy              String
+  partyId         String?
+  party           Party?         @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  partyName       String
+  partyPhone      String?
+  partyAddress    String?
+  partyGstin      String?
+  partyStateCode  String?
+  partyExternalId String?
+  referredBy      String?
+  placeOfSupply   String?
+  supplyType      SupplyType     @default(B2C)
+  reverseCharge   Boolean        @default(false)
+  /// Credit/Debit note link
+  referenceInvoiceId String?
+  sellerGstin     String?
+  sellerLegalName String?
+  sellerStateCode String?
+  sellerAddress   String?
+  taxableAmount   Decimal        @default(0) @db.Decimal(14, 2)
+  cgstAmount      Decimal        @default(0) @db.Decimal(14, 2)
+  sgstAmount      Decimal        @default(0) @db.Decimal(14, 2)
+  igstAmount      Decimal        @default(0) @db.Decimal(14, 2)
+  cessAmount      Decimal        @default(0) @db.Decimal(14, 2)
+  discountAmount  Decimal        @default(0) @db.Decimal(14, 2)
+  grandTotal      Decimal        @default(0) @db.Decimal(14, 2)
+  roundOff        Decimal        @default(0) @db.Decimal(14, 2)
+  amountPaid      Decimal        @default(0) @db.Decimal(14, 2)
+  balanceDue      Decimal        @default(0) @db.Decimal(14, 2)
+  paymentStatus   PaymentStatus  @default(UNPAID)
+  dueDate         DateTime?
+  notes           String?
+  pdfGcsKey       String?
+  irn             String?
+  ackNo           String?
+  ackDate         DateTime?
+  signedQr        String?
+  einvoiceStatus  EinvoiceStatus @default(NOT_APPLICABLE)
+  einvoicePayload Json?
+  createdById     String?
+  createdBy       User?          @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  voidedById      String?
+  voidedBy        User?          @relation("InvoiceVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
+  voidedAt        DateTime?
+  voidReason      String?
+  deletedAt       DateTime?
+  printedAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  lines           InvoiceLine[]
+  payments        InvoicePayment[]
+  ewayBills       EwayBill[]
+
+  @@unique([tenantId, billNo])
+  @@index([tenantId, invoiceDate])
+  @@index([tenantId, status])
+  @@index([tenantId, partyId])
+  @@index([tenantId, fy])
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, paymentStatus])
+  @@index([tenantId, dueDate])
+}
+
+model InvoiceLine {
+  id            String  @id @default(uuid())
+  tenantId      String
+  invoiceId     String
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  lineNo        Int
+  itemId        String?
+  godownId      String?
+  godown        Godown? @relation(fields: [godownId], references: [id], onDelete: SetNull)
+  description   String
+  hsnSac        String?
+  unit          String  @default("NOS")
+  qty           Decimal @db.Decimal(14, 3)
+  rate          Decimal @db.Decimal(14, 2)
+  discount      Decimal @default(0) @db.Decimal(14, 2)
+  taxableValue  Decimal @db.Decimal(14, 2)
+  gstRate       Decimal @db.Decimal(5, 2)
+  cgstAmount    Decimal @default(0) @db.Decimal(14, 2)
+  sgstAmount    Decimal @default(0) @db.Decimal(14, 2)
+  igstAmount    Decimal @default(0) @db.Decimal(14, 2)
+  cessAmount    Decimal @default(0) @db.Decimal(14, 2)
+  lineTotal     Decimal @db.Decimal(14, 2)
+
+  @@index([invoiceId])
+  @@index([tenantId])
+  @@index([godownId])
+}
+
+model InvoicePayment {
+  id        String      @id @default(uuid())
+  tenantId  String
+  invoiceId String
+  invoice   Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  mode      PaymentMode
+  amount    Decimal     @db.Decimal(14, 2)
+  upiRefId  String?
+  cardLast4 String?
+  notes     String?
+  paidAt    DateTime    @default(now())
+
+  @@index([invoiceId])
+  @@index([tenantId])
+  @@index([tenantId, mode])
+}
+
+model MediaObject {
+  id        String       @id @default(uuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  gcsKey    String
+  mimeType  String
+  purpose   MediaPurpose
+  sizeBytes Int?
+  createdAt DateTime     @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, purpose])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String?
+  entityId   String?
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([userId])
+  @@index([action])
+}
+
+enum InquiryStatus {
+  NEW
+  READ
+}
+
+model PlatformInquiry {
+  id           String        @id @default(uuid())
+  name         String
+  businessName String
+  phone        String
+  email        String
+  message      String
+  status       InquiryStatus @default(NEW)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum SubPaymentMethod {
+  MANUAL
+  RAZORPAY
+}
+
+enum PaymentOrderStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  MANUAL
+}
+
+model SubscriptionPlan {
+  id               String   @id @default(uuid())
+  code             String   @unique
+  name             String
+  description      String   @default("")
+  priceMonthlyInr  Int
+  priceYearlyInr   Int
+  currency         String   @default("INR")
+  maxUsers         Int
+  maxInvoices      Int
+  trialDays        Int      @default(14)
+  features         Json     @default("[]")
+  isPublic         Boolean  @default(true)
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  isCustom         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  subscriptions TenantSubscription[]
+  paymentOrders PaymentOrder[]
+
+  @@index([isActive, isPublic, sortOrder])
+}
+
+model TenantSubscription {
+  id            String             @id @default(uuid())
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId        String
+  plan          SubscriptionPlan   @relation(fields: [planId], references: [id])
+  billingCycle  BillingCycle       @default(YEARLY)
+  status        SubscriptionStatus @default(TRIAL)
+  startsAt      DateTime           @default(now())
+  endsAt        DateTime
+  amountInr     Int                @default(0)
+  paymentMethod SubPaymentMethod   @default(MANUAL)
+  paymentRef    String?
+  notes         String?
+  assignedById  String?
+  assignedBy    User?              @relation("SubscriptionAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  paymentOrders PaymentOrder[]
+
+  @@index([tenantId, status])
+  @@index([endsAt])
+  @@index([planId])
+}
+
+model PlatformPaymentSettings {
+  id                      String   @id @default(uuid())
+  gatewayEnabled          Boolean  @default(false)
+  razorpayKeyId           String?
+  razorpayKeySecretEnc    String?
+  razorpayWebhookSecretEnc String?
+  manualUpiId             String?
+  manualBankDetails       String?
+  updatedById             String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model PaymentOrder {
+  id               String             @id @default(uuid())
+  tenantId         String
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptionId   String?
+  subscription     TenantSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  planId           String
+  plan             SubscriptionPlan   @relation(fields: [planId], references: [id])
+  billingCycle     BillingCycle
+  amountInr        Int
+  currency         String             @default("INR")
+  provider         PaymentProvider    @default(RAZORPAY)
+  providerOrderId  String?
+  providerPaymentId String?
+  status           PaymentOrderStatus @default(CREATED)
+  rawPayload       Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@unique([providerOrderId])
+  @@index([tenantId, status])
+  @@index([status, createdAt])
+}
+
+model WorkspaceNote {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  partyId     String?
+  party       Party?    @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  invoiceId   String?
+  title       String
+  body        String    @default("")
+  pinned      Boolean   @default(false)
+  remindAt    DateTime?
+  createdById String?
+  createdBy   User?     @relation("NoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId, pinned, updatedAt])
+  @@index([tenantId, partyId])
+  @@index([tenantId, remindAt])
+}
+
+model PurchaseBill {
+  id            String         @id @default(uuid())
+  tenantId      String
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  billNo        String
+  status        PurchaseStatus @default(DRAFT)
+  billDate      DateTime       @default(now())
+  fy            String
+  vendorId      String?
+  vendor        Party?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorName    String
+  vendorGstin   String?
+  vendorPhone   String?
+  godownId      String?
+  godown        Godown?        @relation(fields: [godownId], references: [id], onDelete: SetNull)
+  taxableAmount Decimal        @default(0) @db.Decimal(14, 2)
+  cgstAmount    Decimal        @default(0) @db.Decimal(14, 2)
+  sgstAmount    Decimal        @default(0) @db.Decimal(14, 2)
+  igstAmount    Decimal        @default(0) @db.Decimal(14, 2)
+  grandTotal    Decimal        @default(0) @db.Decimal(14, 2)
+  /// Eligible input tax credit (typically when vendor GSTIN present)
+  itcEligible   Boolean        @default(false)
+  itcCgst       Decimal        @default(0) @db.Decimal(14, 2)
+  itcSgst       Decimal        @default(0) @db.Decimal(14, 2)
+  itcIgst       Decimal        @default(0) @db.Decimal(14, 2)
+  itcNotes      String?
+  notes         String?
+  createdById   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  lines         PurchaseLine[]
+
+  @@unique([tenantId, billNo])
+  @@index([tenantId, billDate])
+  @@index([tenantId, status])
+  @@index([tenantId, itcEligible])
+}
+
+model PurchaseLine {
+  id           String       @id @default(uuid())
+  tenantId     String
+  purchaseId   String
+  purchase     PurchaseBill @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  lineNo       Int
+  itemId       String?
+  item         ItemMaster?  @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description  String
+  hsnSac       String?
+  unit         String       @default("NOS")
+  qty          Decimal      @db.Decimal(14, 3)
+  rate         Decimal      @db.Decimal(14, 2)
+  gstRate      Decimal      @db.Decimal(5, 2)
+  taxableValue Decimal      @db.Decimal(14, 2)
+  cgstAmount   Decimal      @default(0) @db.Decimal(14, 2)
+  sgstAmount   Decimal      @default(0) @db.Decimal(14, 2)
+  igstAmount   Decimal      @default(0) @db.Decimal(14, 2)
+  lineTotal    Decimal      @db.Decimal(14, 2)
+
+  @@index([purchaseId])
+  @@index([tenantId])
+}
+
+model EwayBill {
+  id           String     @id @default(uuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoiceId    String
+  invoice      Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  status       EwayStatus @default(DRAFT)
+  ewbNo        String?
+  vehicleNo    String?
+  transporter  String?
+  fromPlace    String?
+  toPlace      String?
+  distanceKm   Int?
+  validUntil   DateTime?
+  cancelReason String?
+  payload      Json?
+  createdById  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([tenantId, status])
+  @@index([invoiceId])
+  @@index([tenantId, createdAt])
+}

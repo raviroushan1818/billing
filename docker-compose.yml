@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: billing
+      POSTGRES_PASSWORD: billing
+      POSTGRES_DB: billing
+    ports:
+      - '5434:5432'
+    volumes:
+      - billing_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U billing -d billing']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://billing:billing@postgres:5432/billing
+      JWT_SECRET: dev-secret-change-in-production
+      JWT_EXPIRES_IN: 8h
+      PORT: 3000
+      NODE_ENV: development
+      UPLOAD_DIR: /app/uploads
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+      SEED_SUPERADMIN_EMAIL: admin@platform.local
+      SEED_SUPERADMIN_PASSWORD: ChangeMe123!
+    volumes:
+      - billing_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - full
+
+volumes:
+  billing_pg_data:
+  billing_uploads:
