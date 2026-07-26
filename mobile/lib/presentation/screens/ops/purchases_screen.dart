@@ -47,12 +47,16 @@ class PurchasesScreen extends ConsumerWidget {
                   child: ListTile(
                     onTap: () => context.go('/purchases/${purchase.id}'),
                     title: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          purchase.billNo,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            purchase.billNo,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Text(
                           MoneyUtils.format(purchase.grandTotal),
                           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -64,12 +68,15 @@ class PurchasesScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Vendor: ${purchase.vendorName}'),
+                          Text(
+                            'Vendor: ${purchase.vendorName}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           const SizedBox(height: 4),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Date: ${purchase.billDate}'),
+                              Expanded(child: Text('Date: ${purchase.billDate}')),
                               _buildStatusBadge(purchase.status),
                             ],
                           ),

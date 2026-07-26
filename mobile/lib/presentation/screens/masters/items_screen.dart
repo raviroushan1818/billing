@@ -4,6 +4,7 @@ import '../../../domain/providers/auth_provider.dart';
 import '../../../domain/providers/masters_providers.dart';
 import '../../../data/models/masters_models.dart';
 import '../../../core/utils/money_utils.dart';
+import '../../widgets/ui_helpers.dart';
 
 class ItemsScreen extends ConsumerStatefulWidget {
   const ItemsScreen({super.key});
@@ -246,68 +247,72 @@ class _ItemsScreenState extends ConsumerState<ItemsScreen> {
 
             return AlertDialog(
               title: Text('Adjust Stock: ${item.name}'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Current Stock: ${item.stockQty} ${item.unit ?? "NOS"}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: qtyController,
-                        decoration: const InputDecoration(
-                          labelText: 'Qty Change (e.g. 5, -3)',
-                          prefixIcon: Icon(Icons.swap_vert),
-                          helperText: 'Positive to add, negative to subtract',
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Qty is required';
-                          if (double.tryParse(v.trim()) == null) return 'Enter a valid number';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: noteController,
-                        decoration: const InputDecoration(
-                          labelText: 'Reason/Note',
-                          prefixIcon: Icon(Icons.notes),
-                        ),
-                      ),
-                      if (hasStockFeature) ...[
+              content: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.9,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Current Stock: ${item.stockQty} ${item.unit ?? "NOS"}',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
-                        godownsState.when(
-                          data: (godowns) {
-                            if (godowns.isEmpty) {
-                              return const Text('No godowns available. Will adjust globally.');
-                            }
-                            return DropdownButtonFormField<Godown>(
-                              value: selectedGodown,
-                              decoration: const InputDecoration(
-                                labelText: 'Select Godown (Optional)',
-                                prefixIcon: Icon(Icons.warehouse),
-                              ),
-                              items: godowns.map((g) {
-                                return DropdownMenuItem(
-                                  value: g,
-                                  child: Text('${g.name} ${g.isDefault ? "(Default)" : ""}'),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() {
-                                  selectedGodown = val;
-                                });
-                              },
-                            );
+                        TextFormField(
+                          controller: qtyController,
+                          decoration: const InputDecoration(
+                            labelText: 'Qty Change (e.g. 5, -3)',
+                            prefixIcon: Icon(Icons.swap_vert),
+                            helperText: 'Positive to add, negative to subtract',
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return 'Qty is required';
+                            if (double.tryParse(v.trim()) == null) return 'Enter a valid number';
+                            return null;
                           },
-                          loading: () => const CircularProgressIndicator(),
-                          error: (e, s) => Text('Error loading godowns: $e'),
                         ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: noteController,
+                          decoration: const InputDecoration(
+                            labelText: 'Reason/Note',
+                            prefixIcon: Icon(Icons.notes),
+                          ),
+                        ),
+                        if (hasStockFeature) ...[
+                          const SizedBox(height: 16),
+                          godownsState.when(
+                            data: (godowns) {
+                              if (godowns.isEmpty) {
+                                return const Text('No godowns available. Will adjust globally.');
+                              }
+                              return DropdownButtonFormField<Godown>(
+                                isExpanded: true,
+                                value: selectedGodown,
+                                decoration: const InputDecoration(
+                                  labelText: 'Select Godown (Optional)',
+                                  prefixIcon: Icon(Icons.warehouse),
+                                ),
+                                items: godowns.map((g) {
+                                  return UiHelpers.menuItem<Godown>(
+                                    value: g,
+                                    label: '${g.name} ${g.isDefault ? "(Default)" : ""}',
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    selectedGodown = val;
+                                  });
+                                },
+                              );
+                            },
+                            loading: () => const CircularProgressIndicator(),
+                            error: (e, s) => Text('Error loading godowns: $e'),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),

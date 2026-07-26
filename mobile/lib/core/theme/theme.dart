@@ -87,6 +87,8 @@ class AppTheme {
         selectedItemColor: primary,
         unselectedItemColor: lightTextSecondary,
         type: BottomNavigationBarType.fixed,
+        selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: const TextStyle(fontSize: 10),
         elevation: 8,
       ),
     );
@@ -165,6 +167,8 @@ class AppTheme {
         selectedItemColor: primary,
         unselectedItemColor: darkTextSecondary,
         type: BottomNavigationBarType.fixed,
+        selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: const TextStyle(fontSize: 10),
         elevation: 8,
       ),
     );

@@ -257,8 +257,15 @@ class _PurchaseDetailScreenState extends ConsumerState<PurchaseDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 120, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey))),
-          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
         ],
       ),
     );
@@ -273,10 +280,13 @@ class _PurchaseDetailScreenState extends ConsumerState<PurchaseDetailScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: style),
-          Text(value, style: style),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(value, textAlign: TextAlign.end, style: style),
+          ),
         ],
       ),
     );

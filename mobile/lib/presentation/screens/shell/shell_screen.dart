@@ -180,6 +180,9 @@ class ShellScreen extends ConsumerWidget {
       body: child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
+        type: BottomNavigationBarType.fixed,
+        selectedFontSize: 11,
+        unselectedFontSize: 10,
         onTap: (index) {
           context.go(bottomRoutes[index]);
         },
@@ -187,7 +190,7 @@ class ShellScreen extends ConsumerWidget {
           const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+            label: 'Home',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_outlined),
@@ -197,7 +200,7 @@ class ShellScreen extends ConsumerWidget {
           BottomNavigationBarItem(
             icon: const Icon(Icons.people_outline),
             activeIcon: const Icon(Icons.people),
-            label: partyLabel,
+            label: _shortNavLabel(partyLabel),
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.inventory_2_outlined),
@@ -208,7 +211,7 @@ class ShellScreen extends ConsumerWidget {
             const BottomNavigationBarItem(
               icon: Icon(Icons.warehouse_outlined),
               activeIcon: Icon(Icons.warehouse),
-              label: 'Godowns',
+              label: 'Stock',
             ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -218,5 +221,11 @@ class ShellScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  static String _shortNavLabel(String label) {
+    final trimmed = label.trim();
+    if (trimmed.length <= 10) return trimmed;
+    return '${trimmed.substring(0, 9)}…';
   }
 }

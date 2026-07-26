@@ -112,23 +112,38 @@ class Tenant {
   final String id;
   final String name;
   final String clientId;
-  final bool isActive;
+  final String status;
+  final String? planCode;
   final TenantProfileConfig? profileConfig;
 
   Tenant({
     required this.id,
     required this.name,
     required this.clientId,
-    required this.isActive,
+    required this.status,
+    this.planCode,
     this.profileConfig,
   });
 
+  /// ACTIVE / TRIAL tenants are considered active; SUSPENDED (and unknown) are not.
+  bool get isActive => status == 'ACTIVE' || status == 'TRIAL';
+
   factory Tenant.fromJson(Map<String, dynamic> json) {
+    // Production API returns Prisma `status` (ACTIVE|TRIAL|SUSPENDED).
+    // Accept legacy `isActive` bool for older fixtures/tests.
+    final rawStatus = json['status'] as String?;
+    final legacyActive = json['isActive'] as bool?;
+    final status = rawStatus ??
+        (legacyActive == null
+            ? 'ACTIVE'
+            : (legacyActive ? 'ACTIVE' : 'SUSPENDED'));
+
     return Tenant(
       id: json['id'] as String,
       name: json['name'] as String,
       clientId: json['clientId'] as String,
-      isActive: json['isActive'] as bool,
+      status: status,
+      planCode: json['planCode'] as String?,
       profileConfig: json['profileConfig'] != null
           ? TenantProfileConfig.fromJson(json['profileConfig'] as Map<String, dynamic>)
           : null,
@@ -140,7 +155,8 @@ class Tenant {
       'id': id,
       'name': name,
       'clientId': clientId,
-      'isActive': isActive,
+      'status': status,
+      'planCode': planCode,
       'profileConfig': profileConfig?.toJson(),
     };
   }

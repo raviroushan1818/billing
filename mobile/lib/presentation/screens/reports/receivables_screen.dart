@@ -146,9 +146,16 @@ class ReceivablesReportScreen extends ConsumerWidget {
                             ),
                           ),
                           title: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(row.partyName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Expanded(
+                                child: Text(
+                                  row.partyName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Text(
                                 MoneyUtils.format(row.balanceDue),
                                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -158,9 +165,15 @@ class ReceivablesReportScreen extends ConsumerWidget {
                           subtitle: Padding(
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Bill: ${row.billNo}'),
+                                Expanded(
+                                  child: Text(
+                                    'Bill: ${row.billNo}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 Text('Due: ${row.dueDate}', style: const TextStyle(fontSize: 12)),
                               ],
                             ),

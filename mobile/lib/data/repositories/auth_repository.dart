@@ -47,10 +47,12 @@ class AuthRepository {
     }
   }
 
-  Future<TenantProfileConfig> getProfileConfig() async {
+  Future<TenantProfileConfig?> getProfileConfig() async {
     try {
       final response = await _client.get('/tenants/profile-config');
-      return TenantProfileConfig.fromJson(response.data as Map<String, dynamic>);
+      final data = response.data;
+      if (data == null) return null;
+      return TenantProfileConfig.fromJson(data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
@@ -60,7 +62,7 @@ class AuthRepository {
     try {
       final response = await _client.get('/billing/features');
       final data = response.data as Map<String, dynamic>;
-      return data.map((key, value) => MapEntry(key, value as bool));
+      return data.map((key, value) => MapEntry(key, value == true));
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }

@@ -7,6 +7,7 @@ import '../../../domain/providers/ops_providers.dart';
 import '../../../data/models/masters_models.dart';
 import '../../../data/models/ops_models.dart';
 import '../../../core/utils/money_utils.dart';
+import '../../widgets/ui_helpers.dart';
 
 class NewPurchaseScreen extends ConsumerStatefulWidget {
   const NewPurchaseScreen({super.key});
@@ -97,87 +98,91 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Add Purchase Line'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DropdownButtonFormField<Item>(
-                        decoration: const InputDecoration(labelText: 'Catalog Item'),
-                        items: items.map((i) {
-                          return DropdownMenuItem(value: i, child: Text(i.name));
-                        }).toList(),
-                        onChanged: (item) {
-                          if (item != null) {
-                            setState(() {
-                              selectedItem = item;
-                              descController.text = item.name;
-                              hsnController.text = item.hsnSac ?? '';
-                              unitController.text = item.unit ?? 'NOS';
-                              rateController.text = item.rate.toString();
-                              gstController.text = item.gstRate.toString();
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: descController,
-                        decoration: const InputDecoration(labelText: 'Description *'),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Description is required' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: qtyController,
-                              decoration: const InputDecoration(labelText: 'Quantity *'),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Required';
-                                final parsed = double.tryParse(v.trim());
-                                if (parsed == null || parsed <= 0) return 'Must be > 0';
-                                return null;
-                              },
+              content: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.9,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DropdownButtonFormField<Item>(
+                          isExpanded: true,
+                          decoration: const InputDecoration(labelText: 'Catalog Item'),
+                          items: items.map((i) {
+                            return UiHelpers.menuItem<Item>(value: i, label: i.name);
+                          }).toList(),
+                          onChanged: (item) {
+                            if (item != null) {
+                              setState(() {
+                                selectedItem = item;
+                                descController.text = item.name;
+                                hsnController.text = item.hsnSac ?? '';
+                                unitController.text = item.unit ?? 'NOS';
+                                rateController.text = item.rate.toString();
+                                gstController.text = item.gstRate.toString();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: descController,
+                          decoration: const InputDecoration(labelText: 'Description *'),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Description is required' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: qtyController,
+                                decoration: const InputDecoration(labelText: 'Quantity *'),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) return 'Required';
+                                  final parsed = double.tryParse(v.trim());
+                                  if (parsed == null || parsed <= 0) return 'Must be > 0';
+                                  return null;
+                                },
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: rateController,
-                              decoration: const InputDecoration(labelText: 'Purchase Rate *'),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Required';
-                                if (double.tryParse(v.trim()) == null) return 'Must be number';
-                                return null;
-                              },
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: rateController,
+                                decoration: const InputDecoration(labelText: 'Purchase Rate *'),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) return 'Required';
+                                  if (double.tryParse(v.trim()) == null) return 'Must be number';
+                                  return null;
+                                },
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: gstController,
-                              decoration: const InputDecoration(labelText: 'GST (%)'),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: gstController,
+                                decoration: const InputDecoration(labelText: 'GST (%)'),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: unitController,
-                              decoration: const InputDecoration(labelText: 'Unit'),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: unitController,
+                                decoration: const InputDecoration(labelText: 'Unit'),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -287,11 +292,12 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
                       partiesState.when(
                         data: (parties) {
                           return DropdownButtonFormField<Party>(
+                            isExpanded: true,
                             value: _selectedVendor,
                             decoration: const InputDecoration(labelText: 'Select Vendor (Optional)'),
                             items: [
-                              const DropdownMenuItem(value: null, child: Text('Custom/Free text vendor')),
-                              ...parties.map((p) => DropdownMenuItem(value: p, child: Text(p.name))),
+                              UiHelpers.menuItem<Party>(value: null, label: 'Custom/Free text vendor'),
+                              ...parties.map((p) => UiHelpers.menuItem<Party>(value: p, label: p.name)),
                             ],
                             onChanged: (val) {
                               if (val != null) {
@@ -390,9 +396,12 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
                         godownsState.when(
                           data: (godowns) {
                             return DropdownButtonFormField<Godown>(
+                              isExpanded: true,
                               value: _selectedGodown,
                               decoration: const InputDecoration(labelText: 'Receipt Godown'),
-                              items: godowns.map((g) => DropdownMenuItem(value: g, child: Text(g.name))).toList(),
+                              items: godowns
+                                  .map((g) => UiHelpers.menuItem<Godown>(value: g, label: g.name))
+                                  .toList(),
                               onChanged: (val) {
                                 setState(() {
                                   _selectedGodown = val;
@@ -498,10 +507,17 @@ class _NewPurchaseScreenState extends ConsumerState<NewPurchaseScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: TextStyle(fontWeight: isBold ? FontWeight.bold : null, color: color)),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(fontWeight: FontWeight.bold, color: color),
+            ),
+          ),
         ],
       ),
     );

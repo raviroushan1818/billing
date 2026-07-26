@@ -153,10 +153,20 @@ class _RecycleBinScreenState extends ConsumerState<RecycleBinScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: ListTile(
                     title: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(invoiceNo, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(MoneyUtils.format(invoice.grandTotal), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Expanded(
+                          child: Text(
+                            invoiceNo,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          MoneyUtils.format(invoice.grandTotal),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                     subtitle: Padding(
@@ -164,7 +174,11 @@ class _RecycleBinScreenState extends ConsumerState<RecycleBinScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Party: ${invoice.partyName}'),
+                          Text(
+                            'Party: ${invoice.partyName}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           Text('Created: ${invoice.invoiceDate}'),
                         ],
                       ),

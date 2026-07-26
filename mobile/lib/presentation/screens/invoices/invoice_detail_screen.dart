@@ -1,12 +1,17 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../domain/providers/auth_provider.dart';
 import '../../../domain/providers/invoices_providers.dart';
 import '../../../data/repositories/invoices_repository.dart';
 import '../../../data/models/invoices_models.dart';
 import '../../../core/utils/money_utils.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../widgets/ui_helpers.dart';
 
 class InvoiceDetailScreen extends ConsumerStatefulWidget {
   final String id;
@@ -82,86 +87,90 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Record Payment'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Max Due: ${MoneyUtils.format(maxDue)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: amountController,
-                        decoration: const InputDecoration(
-                          labelText: 'Payment Amount (₹) *',
-                          prefixIcon: Icon(Icons.currency_rupee),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Amount is required';
-                          final parsed = double.tryParse(v.trim());
-                          if (parsed == null || parsed <= 0) return 'Must be greater than 0';
-                          if (parsed > maxDue) return 'Cannot exceed outstanding balance';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: mode,
-                        decoration: const InputDecoration(labelText: 'Payment Mode'),
-                        items: const [
-                          DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                          DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                          DropdownMenuItem(value: 'CARD', child: Text('Card')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              mode = val;
-                            });
-                          }
-                        },
-                      ),
-                      if (mode == 'UPI') ...[
-                        const SizedBox(height: 12),
+              content: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.9,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Max Due: ${MoneyUtils.format(maxDue)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 16),
                         TextFormField(
-                          controller: upiRefController,
+                          controller: amountController,
                           decoration: const InputDecoration(
-                            labelText: 'UPI Reference ID *',
-                            prefixIcon: Icon(Icons.tag),
+                            labelText: 'Payment Amount (₹) *',
+                            prefixIcon: Icon(Icons.currency_rupee),
                           ),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? 'Reference ID is required for UPI' : null,
-                        ),
-                      ],
-                      if (mode == 'CARD') ...[
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: cardLast4Controller,
-                          decoration: const InputDecoration(
-                            labelText: 'Card Last 4 Digits *',
-                            prefixIcon: Icon(Icons.credit_card),
-                          ),
-                          maxLength: 4,
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           validator: (v) {
-                            if (v == null || v.trim().length != 4 || int.tryParse(v.trim()) == null) {
-                              return 'Enter exactly 4 digits';
-                            }
+                            if (v == null || v.trim().isEmpty) return 'Amount is required';
+                            final parsed = double.tryParse(v.trim());
+                            if (parsed == null || parsed <= 0) return 'Must be greater than 0';
+                            if (parsed > maxDue) return 'Cannot exceed outstanding balance';
                             return null;
                           },
                         ),
-                      ],
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Payment Notes',
-                          prefixIcon: Icon(Icons.notes),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: mode,
+                          decoration: const InputDecoration(labelText: 'Payment Mode'),
+                          items: [
+                            UiHelpers.menuItem(value: 'CASH', label: 'Cash'),
+                            UiHelpers.menuItem(value: 'UPI', label: 'UPI'),
+                            UiHelpers.menuItem(value: 'CARD', label: 'Card'),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                mode = val;
+                              });
+                            }
+                          },
                         ),
-                      ),
-                    ],
+                        if (mode == 'UPI') ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: upiRefController,
+                            decoration: const InputDecoration(
+                              labelText: 'UPI Reference ID *',
+                              prefixIcon: Icon(Icons.tag),
+                            ),
+                            validator: (v) =>
+                                (v == null || v.trim().isEmpty) ? 'Reference ID is required for UPI' : null,
+                          ),
+                        ],
+                        if (mode == 'CARD') ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: cardLast4Controller,
+                            decoration: const InputDecoration(
+                              labelText: 'Card Last 4 Digits *',
+                              prefixIcon: Icon(Icons.credit_card),
+                            ),
+                            maxLength: 4,
+                            keyboardType: TextInputType.number,
+                            validator: (v) {
+                              if (v == null || v.trim().length != 4 || int.tryParse(v.trim()) == null) {
+                                return 'Enter exactly 4 digits';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: notesController,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Notes',
+                            prefixIcon: Icon(Icons.notes),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -301,81 +310,86 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     }
   }
 
-  void _printInvoice() async {
+  Future<void> _printInvoice() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text('Generating invoice PDF…')),
+          ],
+        ),
+      ),
+    );
+
     final res = await ref.read(invoicesNotifierProvider.notifier).printInvoice(widget.id);
     if (!mounted) return;
 
-    if (res != null) {
-      final url = res.signedUrl ?? '';
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Download / Print Invoice'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
-              const SizedBox(height: 16),
-              const Text(
-                'PDF invoice generated successfully!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final uri = Uri.parse(url);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Could not open download link')),
-                      );
-                    }
-                  }
-                },
-                icon: const Icon(Icons.cloud_download_outlined),
-                label: const Text('Download Invoice'),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Or view / copy raw URL:',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.03),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                ),
-                constraints: const BoxConstraints(maxHeight: 70),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    url,
-                    style: const TextStyle(fontSize: 10, color: Colors.blue, decoration: TextDecoration.underline),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-    } else {
+    if (res == null || (res.signedUrl == null || res.signedUrl!.isEmpty)) {
+      Navigator.of(context).pop(); // close loading
       final err = ref.read(invoicesNotifierProvider).error?.toString() ?? 'Failed to print invoice';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(err),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final billNo = _invoice?.invoiceNumber ?? widget.id;
+      final safeName = billNo.replaceAll(RegExp(r'[^\w\-.]+'), '_');
+      final dir = await getTemporaryDirectory();
+      final filePath = '${dir.path}/$safeName.pdf';
+
+      await Dio().download(
+        res.signedUrl!,
+        filePath,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      final file = File(filePath);
+      if (!await file.exists() || await file.length() == 0) {
+        throw Exception('Downloaded PDF is empty');
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // close loading
+
+      final openResult = await OpenFilex.open(filePath, type: 'application/pdf');
+      if (!mounted) return;
+
+      if (openResult.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF saved, but could not open viewer: ${openResult.message}'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invoice PDF ready'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // close loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not download PDF: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -809,15 +823,17 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
-            ),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
           ),
+          const SizedBox(width: 8),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
@@ -833,10 +849,13 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: style),
-          Text(value, style: style),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(value, textAlign: TextAlign.end, style: style),
+          ),
         ],
       ),
     );

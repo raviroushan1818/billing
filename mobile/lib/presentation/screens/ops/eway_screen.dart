@@ -6,6 +6,7 @@ import '../../../domain/providers/invoices_providers.dart';
 import '../../../data/models/ops_models.dart';
 import '../../../data/models/invoices_models.dart';
 import '../../../core/utils/money_utils.dart';
+import '../../widgets/ui_helpers.dart';
 
 class EwayScreen extends ConsumerStatefulWidget {
   const EwayScreen({super.key});
@@ -71,20 +72,21 @@ class _EwayScreenState extends ConsumerState<EwayScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Generate E-way Bill'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
+              content: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.9,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         DropdownButtonFormField<Invoice>(
+                          isExpanded: true,
                           decoration: const InputDecoration(labelText: 'Finalized Invoice *'),
                           items: invoices.map((inv) {
-                            return DropdownMenuItem(
+                            return UiHelpers.menuItem<Invoice>(
                               value: inv,
-                              child: Text('${inv.invoiceNumber} (${inv.partyName})'),
+                              label: '${inv.invoiceNumber} (${inv.partyName})',
                             );
                           }).toList(),
                           onChanged: (val) {

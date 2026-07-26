@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../data/models/auth_models.dart';
 import '../../../domain/providers/auth_provider.dart';
 import '../../../domain/providers/reports_providers.dart';
 import '../../../core/utils/money_utils.dart';
@@ -94,7 +95,7 @@ class DashboardScreen extends ConsumerWidget {
                     child: ElevatedButton.icon(
                       onPressed: () => context.push('/invoices/new'),
                       icon: const Icon(Icons.add),
-                      label: const Text('Raise Invoice'),
+                      label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Raise Invoice')),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 50),
                         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -108,7 +109,7 @@ class DashboardScreen extends ConsumerWidget {
                       child: ElevatedButton.icon(
                         onPressed: () => context.go('/pos'),
                         icon: const Icon(Icons.point_of_sale),
-                        label: const Text('POS Register'),
+                        label: const FittedBox(fit: BoxFit.scaleDown, child: Text('POS Register')),
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size(0, 50),
                           backgroundColor: Theme.of(context).colorScheme.secondary,
@@ -121,7 +122,7 @@ class DashboardScreen extends ConsumerWidget {
                       child: OutlinedButton.icon(
                         onPressed: () => context.go('/receivables'),
                         icon: const Icon(Icons.analytics_outlined),
-                        label: const Text('Receivables'),
+                        label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Receivables')),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 50),
                         ),
@@ -137,7 +138,7 @@ class DashboardScreen extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => context.go('/receivables'),
                     icon: const Icon(Icons.analytics_outlined),
-                    label: const Text('Receivables Summary'),
+                    label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Receivables Summary')),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 50),
                     ),
@@ -228,7 +229,7 @@ class DashboardScreen extends ConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            subscription?['subscription']?['plan']?['name']?.toString() ?? 'Default Tier',
+                            _planDisplayName(subscription, tenant),
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.bold,
@@ -241,7 +242,7 @@ class DashboardScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              subscription?['subscription']?['status']?.toString().toUpperCase() ?? 'ACTIVE',
+                              _planStatus(subscription, tenant),
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.bold,
@@ -258,7 +259,7 @@ class DashboardScreen extends ConsumerWidget {
                         context,
                         'Invoices Raised This Month',
                         subscription?['usage']?['invoices']?.toString() ?? '0',
-                        subscription?['subscription']?['plan']?['maxInvoices']?.toString() ?? 'Unlimited',
+                        _invoiceLimitLabel(subscription),
                       ),
                     ],
                   ),
@@ -319,6 +320,34 @@ class DashboardScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Prefer nested plan name; fall back to tenant.planCode (matches web BillingPage).
+  String _planDisplayName(Map<String, dynamic>? subscription, Tenant? tenant) {
+    final planName = subscription?['subscription']?['plan']?['name']?.toString();
+    if (planName != null && planName.isNotEmpty) return planName;
+    final planCode = subscription?['tenant']?['planCode']?.toString() ?? tenant?.planCode;
+    if (planCode != null && planCode.isNotEmpty) return planCode;
+    return 'Default Tier';
+  }
+
+  String _planStatus(Map<String, dynamic>? subscription, Tenant? tenant) {
+    final subStatus = subscription?['subscription']?['status']?.toString();
+    if (subStatus != null && subStatus.isNotEmpty) return subStatus.toUpperCase();
+    final tenantStatus =
+        subscription?['tenant']?['status']?.toString() ?? tenant?.status;
+    if (tenantStatus != null && tenantStatus.isNotEmpty) {
+      return tenantStatus.toUpperCase();
+    }
+    return 'ACTIVE';
+  }
+
+  String _invoiceLimitLabel(Map<String, dynamic>? subscription) {
+    final fromPlan = subscription?['subscription']?['plan']?['maxInvoices'];
+    if (fromPlan != null) return fromPlan.toString();
+    final fromTenant = subscription?['tenant']?['maxInvoices'];
+    if (fromTenant != null) return fromTenant.toString();
+    return 'Unlimited';
   }
 
   Widget _buildSubscriptionMetric(

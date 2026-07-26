@@ -87,38 +87,44 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> _fetchAppConfigs() async {
+  Future<T?> _safeFetch<T>(Future<T> Function() request) async {
     try {
-      final results = await Future.wait([
-        _repository.getMe(),
-        _repository.getTenantMe(),
-        _repository.getBillingFeatures(),
-        _repository.getProfileConfig(),
-        _repository.getBillingSubscription(),
-      ]);
-
-      final user = results[0] as User;
-      final tenant = results[1] as Tenant;
-      final features = results[2] as Map<String, bool>;
-      final profileConfig = results[3] as TenantProfileConfig;
-      final subscription = results[4] as Map<String, dynamic>;
-
-      await _secureStorage.saveUserJson(jsonEncode(user.toJson()));
-
-      state = state.copyWith(
-        status: AuthStatus.authenticated,
-        user: user,
-        tenant: tenant,
-        features: features,
-        profileConfig: profileConfig,
-        subscription: subscription,
-        isLoading: false,
-        error: null,
-      );
-    } catch (e) {
-      // If server returns error, we keep cached user data but stop loading
-      state = state.copyWith(isLoading: false);
+      return await request();
+    } catch (_) {
+      return null;
     }
+  }
+
+  Future<void> _fetchAppConfigs() async {
+    // Fetch independently so one parse/network failure cannot wipe features/subscription.
+    final results = await Future.wait([
+      _safeFetch(_repository.getMe),
+      _safeFetch(_repository.getTenantMe),
+      _safeFetch(_repository.getBillingFeatures),
+      _safeFetch(_repository.getProfileConfig),
+      _safeFetch(_repository.getBillingSubscription),
+    ]);
+
+    final user = results[0] as User?;
+    final tenant = results[1] as Tenant?;
+    final features = results[2] as Map<String, bool>?;
+    final profileConfig = results[3] as TenantProfileConfig?;
+    final subscription = results[4] as Map<String, dynamic>?;
+
+    if (user != null) {
+      await _secureStorage.saveUserJson(jsonEncode(user.toJson()));
+    }
+
+    state = state.copyWith(
+      status: AuthStatus.authenticated,
+      user: user ?? state.user,
+      tenant: tenant ?? state.tenant,
+      features: features ?? state.features,
+      profileConfig: profileConfig ?? state.profileConfig,
+      subscription: subscription ?? state.subscription,
+      isLoading: false,
+      error: null,
+    );
   }
 
   Future<bool> login({

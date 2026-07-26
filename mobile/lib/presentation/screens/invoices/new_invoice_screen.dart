@@ -7,6 +7,7 @@ import '../../../domain/providers/invoices_providers.dart';
 import '../../../data/models/masters_models.dart';
 import '../../../data/models/invoices_models.dart';
 import '../../../core/utils/money_utils.dart';
+import '../../widgets/ui_helpers.dart';
 
 class NewInvoiceScreen extends ConsumerStatefulWidget {
   const NewInvoiceScreen({super.key});
@@ -149,24 +150,25 @@ class _NewInvoiceScreenState extends ConsumerState<NewInvoiceScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Add Line Item'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
+              content: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.9,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Item Suggestion Search
                         DropdownButtonFormField<Item>(
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Select Catalog Item',
                             prefixIcon: Icon(Icons.shopping_bag_outlined),
                           ),
                           items: items.map((i) {
-                            return DropdownMenuItem(
+                            return UiHelpers.menuItem<Item>(
                               value: i,
-                              child: Text('${i.name} (₹${i.rate})'),
+                              label: '${i.name} (₹${i.rate})',
                             );
                           }).toList(),
                           onChanged: (item) {
@@ -263,15 +265,16 @@ class _NewInvoiceScreenState extends ConsumerState<NewInvoiceScreen> {
                         if (hasStock && godowns.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           DropdownButtonFormField<Godown>(
+                            isExpanded: true,
                             value: selectedGodown,
                             decoration: const InputDecoration(
                               labelText: 'Stock Godown',
                               prefixIcon: Icon(Icons.warehouse_outlined),
                             ),
                             items: godowns.map((g) {
-                              return DropdownMenuItem(
+                              return UiHelpers.menuItem<Godown>(
                                 value: g,
-                                child: Text(g.name),
+                                label: g.name,
                               );
                             }).toList(),
                             onChanged: (val) {
@@ -465,20 +468,21 @@ class _NewInvoiceScreenState extends ConsumerState<NewInvoiceScreen> {
                       partiesState.when(
                         data: (parties) {
                           return DropdownButtonFormField<Party>(
+                            isExpanded: true,
                             value: _selectedParty,
                             decoration: InputDecoration(
                               labelText: 'Choose Stored $partyLabel (Optional)',
                               prefixIcon: const Icon(Icons.people_outline),
                             ),
                             items: [
-                              const DropdownMenuItem<Party>(
+                              UiHelpers.menuItem<Party>(
                                 value: null,
-                                child: Text('Create Custom / Free text customer'),
+                                label: 'Create Custom / Free text customer',
                               ),
                               ...parties.map((p) {
-                                return DropdownMenuItem(
+                                return UiHelpers.menuItem<Party>(
                                   value: p,
-                                  child: Text('${p.name} ${p.phone != null ? "(${p.phone})" : ""}'),
+                                  label: '${p.name} ${p.phone != null ? "(${p.phone})" : ""}',
                                 );
                               })
                             ],
@@ -655,12 +659,13 @@ class _NewInvoiceScreenState extends ConsumerState<NewInvoiceScreen> {
                       if (_initialPayment > 0) ...[
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
+                          isExpanded: true,
                           value: _paymentMode,
                           decoration: const InputDecoration(labelText: 'Payment Mode'),
-                          items: const [
-                            DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                            DropdownMenuItem(value: 'UPI', child: Text('UPI (Google Pay / PhonePe)')),
-                            DropdownMenuItem(value: 'CARD', child: Text('Credit / Debit Card')),
+                          items: [
+                            UiHelpers.menuItem(value: 'CASH', label: 'Cash'),
+                            UiHelpers.menuItem(value: 'UPI', label: 'UPI (Google Pay / PhonePe)'),
+                            UiHelpers.menuItem(value: 'CARD', label: 'Credit / Debit Card'),
                           ],
                           onChanged: (val) {
                             if (val != null) {
@@ -822,10 +827,17 @@ class _NewInvoiceScreenState extends ConsumerState<NewInvoiceScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: TextStyle(color: color)),
-          Text(value, style: TextStyle(fontWeight: FontWeight.w600, color: color)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(fontWeight: FontWeight.w600, color: color),
+            ),
+          ),
         ],
       ),
     );

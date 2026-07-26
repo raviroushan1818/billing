@@ -180,12 +180,14 @@ class _InvoicesRegisterScreenState extends ConsumerState<InvoicesRegisterScreen>
                           border: Border.all(color: Colors.orange.shade200),
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Outstanding Receivables (Listed):',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.brown),
+                            const Expanded(
+                              child: Text(
+                                'Outstanding Receivables (Listed):',
+                                style: TextStyle(fontWeight: FontWeight.w600, color: Colors.brown),
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               MoneyUtils.format(totalOutstanding),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.brown),
@@ -203,12 +205,18 @@ class _InvoicesRegisterScreenState extends ConsumerState<InvoicesRegisterScreen>
                             child: ListTile(
                               onTap: () => context.go('/invoices/${invoice.id}'),
                               title: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    invoice.invoiceNumber.isNotEmpty ? invoice.invoiceNumber : 'Draft #${invoice.id.substring(0, 5)}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  Expanded(
+                                    child: Text(
+                                      invoice.invoiceNumber.isNotEmpty
+                                          ? invoice.invoiceNumber
+                                          : 'Draft #${invoice.id.substring(0, 5)}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     MoneyUtils.format(invoice.grandTotal),
                                     style: const TextStyle(fontWeight: FontWeight.bold),
@@ -220,15 +228,20 @@ class _InvoicesRegisterScreenState extends ConsumerState<InvoicesRegisterScreen>
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('Party: ${invoice.partyName}'),
+                                    Text(
+                                      'Party: ${invoice.partyName}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                     const SizedBox(height: 4),
-                                    Row(
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
                                       children: [
                                         _buildStatusBadge(invoice.status),
-                                        const SizedBox(width: 6),
                                         _buildPaymentStatusBadge(invoice.paymentStatus),
-                                        if (invoice.balanceDue > 0 && invoice.status != 'VOID') ...[
-                                          const SizedBox(width: 8),
+                                        if (invoice.balanceDue > 0 && invoice.status != 'VOID')
                                           Text(
                                             'Due: ${MoneyUtils.format(invoice.balanceDue)}',
                                             style: const TextStyle(
@@ -237,7 +250,6 @@ class _InvoicesRegisterScreenState extends ConsumerState<InvoicesRegisterScreen>
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                        ],
                                       ],
                                     ),
                                   ],

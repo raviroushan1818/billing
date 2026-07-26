@@ -51,7 +51,8 @@ void main() {
         'id': 'tenant-789',
         'name': 'My Sweet Shop',
         'clientId': 'MYSHOP123',
-        'isActive': true,
+        'status': 'ACTIVE',
+        'planCode': 'ENTERPRISE',
         'profileConfig': {
           'invoiceTitle': 'Tax Invoice',
           'partyLabel': 'Customer',
@@ -62,8 +63,29 @@ void main() {
       final tenant = Tenant.fromJson(json);
 
       expect(tenant.id, 'tenant-789');
+      expect(tenant.status, 'ACTIVE');
       expect(tenant.isActive, true);
+      expect(tenant.planCode, 'ENTERPRISE');
       expect(tenant.profileConfig?.partyLabel, 'Customer');
+    });
+
+    test('Tenant should accept legacy isActive and production status', () {
+      final legacy = Tenant.fromJson({
+        'id': 't1',
+        'name': 'Shop',
+        'clientId': 'SHOP1',
+        'isActive': false,
+      });
+      expect(legacy.status, 'SUSPENDED');
+      expect(legacy.isActive, false);
+
+      final suspended = Tenant.fromJson({
+        'id': 't2',
+        'name': 'Shop',
+        'clientId': 'SHOP2',
+        'status': 'SUSPENDED',
+      });
+      expect(suspended.isActive, false);
     });
   });
 }

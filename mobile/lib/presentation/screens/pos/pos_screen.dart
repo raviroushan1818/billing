@@ -6,6 +6,7 @@ import '../../../domain/providers/masters_providers.dart';
 import '../../../domain/providers/invoices_providers.dart';
 import '../../../data/models/masters_models.dart';
 import '../../../core/utils/money_utils.dart';
+import '../../widgets/ui_helpers.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -216,227 +217,310 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     final itemsState = ref.watch(itemsProvider);
     final cartCount = _cart.values.fold<int>(0, (sum, val) => sum + val);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 720;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('POS Fast Register'),
       ),
-      body: Row(
-        children: [
-          // Left Side: Items Catalog list
-          Expanded(
-            flex: 3,
-            child: Column(
+      body: isCompact
+          ? Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _onSearch,
-                    decoration: InputDecoration(
-                      hintText: 'Search catalog / scan barcode...',
-                      prefixIcon: const Icon(Icons.qr_code_scanner),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                _onSearch('');
-                              },
-                            )
-                          : null,
+                Expanded(flex: 3, child: _buildCatalogPane(itemsState)),
+                const Divider(height: 1),
+                Expanded(flex: 2, child: _buildCartPane(itemsState, cartCount)),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(flex: 3, child: _buildCatalogPane(itemsState)),
+                SizedBox(
+                  width: 320,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border(left: BorderSide(color: Colors.grey.shade300)),
+                      color: Theme.of(context).cardColor,
                     ),
-                  ),
-                ),
-                Expanded(
-                  child: itemsState.when(
-                    data: (items) {
-                      if (items.isEmpty) {
-                        return const Center(child: Text('No catalog items found.'));
-                      }
-                      return GridView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 180,
-                          childAspectRatio: 1.2,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          final qtyInCart = _cart[item.id] ?? 0;
-
-                          return GestureDetector(
-                            onTap: () => _addToCart(item),
-                            child: Card(
-                              color: qtyInCart > 0
-                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.08)
-                                  : null,
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      item.name,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      MoneyUtils.format(item.rate),
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.primary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    if (qtyInCart > 0) ...[
-                                      const SizedBox(height: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context).colorScheme.primary,
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: Text(
-                                          'Qty: $qtyInCart',
-                                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (e, s) => Center(child: Text('Error: $e')),
+                    child: _buildCartPane(itemsState, cartCount),
                   ),
                 ),
               ],
             ),
-          ),
+    );
+  }
 
-          // Right Side: Cart Pane (visible on large screen/landscape, on mobile/portrait it can adapt)
-          Container(
-            width: 320,
-            decoration: BoxDecoration(
-              border: Border(left: BorderSide(color: Colors.grey.shade300)),
-              color: Theme.of(context).cardColor,
+  Widget _buildCatalogPane(AsyncValue<List<Item>> itemsState) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearch,
+            decoration: InputDecoration(
+              hintText: 'Search catalog / scan barcode...',
+              prefixIcon: const Icon(Icons.qr_code_scanner),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        _onSearch('');
+                      },
+                    )
+                  : null,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Cart Summary ($cartCount)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      if (_cart.isNotEmpty)
-                        TextButton(
-                          onPressed: () => setState(() => _cart.clear()),
-                          child: const Text('Clear'),
-                        ),
-                    ],
+          ),
+        ),
+        Expanded(
+          child: itemsState.when(
+            data: (items) {
+              if (items.isEmpty) {
+                return const Center(child: Text('No catalog items found.'));
+              }
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = (constraints.maxWidth / 140).floor().clamp(2, 4);
+                  return GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: 1.05,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      final qtyInCart = _cart[item.id] ?? 0;
+                      return _PosItemTile(
+                        item: item,
+                        qtyInCart: qtyInCart,
+                        onTap: () => _addToCart(item),
+                      );
+                    },
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('Error: $e')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCartPane(AsyncValue<List<Item>> itemsState, int cartCount) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Cart Summary ($cartCount)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (_cart.isNotEmpty)
+                TextButton(
+                  onPressed: () => setState(() => _cart.clear()),
+                  child: const Text('Clear'),
+                ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: _cart.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Cart is empty. Tap items to add.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey),
+                    ),
                   ),
-                ),
-                const Divider(),
-                Expanded(
-                  child: _cart.isEmpty
-                      ? const Center(child: Text('Cart is empty. Tap items to add.', style: TextStyle(color: Colors.grey)))
-                      : ListView.builder(
-                          itemCount: _cart.length,
-                          itemBuilder: (context, index) {
-                            final itemId = _cart.keys.elementAt(index);
-                            final qty = _cart[itemId]!;
-                            
-                            // Find item in cache
-                            Item? item;
-                            itemsState.whenData((list) {
-                              item = list.firstWhere((i) => i.id == itemId);
-                            });
+                )
+              : ListView.builder(
+                  itemCount: _cart.length,
+                  itemBuilder: (context, index) {
+                    final itemId = _cart.keys.elementAt(index);
+                    final qty = _cart[itemId]!;
 
-                            if (item == null) return const SizedBox();
+                    Item? item;
+                    itemsState.whenData((list) {
+                      for (final candidate in list) {
+                        if (candidate.id == itemId) {
+                          item = candidate;
+                          break;
+                        }
+                      }
+                    });
 
-                            return ListTile(
-                              title: Text(item!.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                              subtitle: Text('${MoneyUtils.format(item!.rate)} x $qty'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, size: 20),
-                                    onPressed: () => _removeFromCart(item!),
-                                  ),
-                                  Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle_outline, size: 20),
-                                    onPressed: () => _addToCart(item!),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                const Divider(),
-                // Totals & Pay
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    if (item == null) return const SizedBox.shrink();
+
+                    return ListTile(
+                      dense: true,
+                      title: Text(item!.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text('${MoneyUtils.format(item!.rate)} x $qty'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('Grand Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text(
-                            MoneyUtils.format(_cartGrandTotal),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, size: 20),
+                            onPressed: () => _removeFromCart(item!),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, size: 20),
+                            onPressed: () => _addToCart(item!),
+                            visualDensity: VisualDensity.compact,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      // Payment toggle
-                      DropdownButtonFormField<String>(
-                        value: _paymentMode,
-                        decoration: const InputDecoration(labelText: 'Payment Mode'),
-                        items: const [
-                          DropdownMenuItem(value: 'CASH', child: Text('Cash')),
-                          DropdownMenuItem(value: 'UPI', child: Text('UPI')),
-                          DropdownMenuItem(value: 'CARD', child: Text('Card')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _paymentMode = val;
-                            });
-                          }
-                        },
+                    );
+                  },
+                ),
+        ),
+        const Divider(height: 1),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Grand Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Flexible(
+                      child: Text(
+                        MoneyUtils.format(_cartGrandTotal),
+                        textAlign: TextAlign.end,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _cart.isEmpty ? null : _submitPosSale,
-                        child: const Text('Charge & Print Bill'),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _paymentMode,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment Mode',
+                    isDense: true,
                   ),
+                  items: [
+                    UiHelpers.menuItem(value: 'CASH', label: 'Cash'),
+                    UiHelpers.menuItem(value: 'UPI', label: 'UPI'),
+                    UiHelpers.menuItem(value: 'CARD', label: 'Card'),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _paymentMode = val);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: _cart.isEmpty ? null : _submitPosSale,
+                  child: const Text('Charge & Print Bill'),
                 ),
               ],
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PosItemTile extends StatelessWidget {
+  final Item item;
+  final int qtyInCart;
+  final VoidCallback onTap;
+
+  const _PosItemTile({
+    required this.item,
+    required this.qtyInCart,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final selected = qtyInCart > 0;
+
+    return Material(
+      color: selected ? primary.withValues(alpha: 0.08) : Theme.of(context).cardColor,
+      elevation: 1,
+      shadowColor: Colors.black26,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: Text(
+                    item.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ),
+              Text(
+                MoneyUtils.format(item.rate),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Qty: $qtyInCart',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ] else
+                const SizedBox(height: 4),
+            ],
+          ),
+        ),
       ),
     );
   }

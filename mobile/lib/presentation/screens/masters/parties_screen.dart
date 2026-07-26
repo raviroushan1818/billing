@@ -266,7 +266,13 @@ class _PartiesScreenState extends ConsumerState<PartiesScreen> {
                                   children: [
                                     const Icon(Icons.phone, size: 14, color: Colors.grey),
                                     const SizedBox(width: 6),
-                                    Text(party.phone!),
+                                    Expanded(
+                                      child: Text(
+                                        party.phone!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               if (party.gstin != null && party.gstin!.isNotEmpty)

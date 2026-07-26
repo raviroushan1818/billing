@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../domain/providers/auth_provider.dart';
 import '../../../domain/providers/masters_providers.dart';
 import '../../../data/models/masters_models.dart';
+import '../../widgets/ui_helpers.dart';
 
 class GodownsScreen extends ConsumerStatefulWidget {
   const GodownsScreen({super.key});
@@ -193,25 +194,26 @@ class _GodownsScreenState extends ConsumerState<GodownsScreen> with SingleTicker
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Stock Transfer'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: _formKey,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
+              content: SizedBox(
+                width: MediaQuery.sizeOf(context).width * 0.9,
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // Item selection
                         DropdownButtonFormField<Item>(
+                          isExpanded: true,
                           value: selectedItem,
                           decoration: const InputDecoration(
                             labelText: 'Select Item *',
                             prefixIcon: Icon(Icons.shopping_bag_outlined),
                           ),
                           items: items.map((i) {
-                            return DropdownMenuItem(
+                            return UiHelpers.menuItem<Item>(
                               value: i,
-                              child: Text('${i.name} (In stock: ${i.stockQty})'),
+                              label: '${i.name} (In stock: ${i.stockQty})',
                             );
                           }).toList(),
                           onChanged: (val) {
@@ -225,16 +227,14 @@ class _GodownsScreenState extends ConsumerState<GodownsScreen> with SingleTicker
 
                         // From Godown selection
                         DropdownButtonFormField<Godown>(
+                          isExpanded: true,
                           value: fromGodown,
                           decoration: const InputDecoration(
                             labelText: 'Source Godown *',
                             prefixIcon: Icon(Icons.warehouse_outlined),
                           ),
                           items: godowns.map((g) {
-                            return DropdownMenuItem(
-                              value: g,
-                              child: Text(g.name),
-                            );
+                            return UiHelpers.menuItem<Godown>(value: g, label: g.name);
                           }).toList(),
                           onChanged: (val) {
                             setState(() {
@@ -251,16 +251,14 @@ class _GodownsScreenState extends ConsumerState<GodownsScreen> with SingleTicker
 
                         // To Godown selection
                         DropdownButtonFormField<Godown>(
+                          isExpanded: true,
                           value: toGodown,
                           decoration: const InputDecoration(
                             labelText: 'Target Godown *',
                             prefixIcon: Icon(Icons.warehouse_outlined),
                           ),
                           items: godowns.map((g) {
-                            return DropdownMenuItem(
-                              value: g,
-                              child: Text(g.name),
-                            );
+                            return UiHelpers.menuItem<Godown>(value: g, label: g.name);
                           }).toList(),
                           onChanged: (val) {
                             setState(() {
