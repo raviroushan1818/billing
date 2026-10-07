@@ -48,6 +48,38 @@ export function formatPayments(
     .join(', ');
 }
 
+/** e.g. "07 Oct 2026, 1:06 pm" in the viewer's local time. */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/** e.g. "07 Oct 2026". Accepts YYYY-MM-DD or a full ISO timestamp. */
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export const PAYMENT_MODE_LABEL: Record<string, string> = {
+  CASH: 'Cash',
+  UPI: 'UPI',
+  CARD: 'Card',
+};
+
 /** Line discount mode: flat INR amount or percent of (qty × rate). */
 export type DiscountType = 'INR' | 'PCT';
 

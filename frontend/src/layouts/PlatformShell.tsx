@@ -9,14 +9,17 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { BrandLogo } from '../components/BrandLogo';
+import { NavBackdrop, NavToggle, useMobileNav } from './MobileNav';
 import { useAuth } from '../auth/AuthContext';
 
 export function PlatformShell() {
+  const nav = useMobileNav();
   const { user, logout } = useAuth();
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
+    <div className={`shell${nav.open ? ' nav-open' : ''}`}>
+      <NavBackdrop open={nav.open} onClose={nav.close} />
+      <aside className="sidebar" id="app-sidebar">
         <div className="sidebar-brand">
           <BrandLogo className="sidebar-logo" decorative />
           <div className="sidebar-brand-copy">
@@ -88,6 +91,7 @@ export function PlatformShell() {
       </aside>
       <div className="shell-main">
         <header className="topbar">
+          <NavToggle open={nav.open} onToggle={nav.toggle} />
           <span className="topbar-meta">Super Admin Console</span>
           <ThemeToggle />
         </header>

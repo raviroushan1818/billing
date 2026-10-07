@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Receipt, Trash2 } from 'lucide-react';
 import { invoicesApi, inventoryApi, itemsApi, partiesApi } from '../../api';
 import { useTenantProfile } from '../../hooks/useTenantProfile';
-import type { Godown, Item, Party, PaymentMode } from '../../types';
+import type { Godown, Invoice, Item, Party, PaymentMode } from '../../types';
 import {
   calcBillTotals,
   discountAmount,
@@ -17,6 +17,9 @@ import {
 import { openInvoicePrint } from '../../utils/printInvoice';
 import { compactPartyMeta, readPartyMeta } from '../../utils/partyMeta';
 import { Alert, Button, Field, PageHeader } from '../../components/ui';
+import { PaymentLedger, ReceivePaymentDialog } from '../../components/payments';
+import { useAuth } from '../../auth/AuthContext';
+import { PartySearch } from '../../components/PartySearch';
 
 /** Number inputs may be blank (`''`) until the user types, except qty which defaults to 1. */
 type NumInput = number | '';
@@ -112,11 +115,18 @@ export function NewBillPage() {
   const [catalog, setCatalog] = useState<Item[]>([]);
   const [godowns, setGodowns] = useState<Godown[]>([]);
   const [defaultGodownId, setDefaultGodownId] = useState('');
-  const [searchResults, setSearchResults] = useState<Party[]>([]);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [selectedParty, setSelectedParty] = useState<Party | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [readonly, setReadonly] = useState(false);
+  const [loadedInvoice, setLoadedInvoice] = useState<Invoice | null>(null);
+  const [receiving, setReceiving] = useState(false);
+  const [payNotice, setPayNotice] = useState<string | null>(null);
+  const { user } = useAuth();
+  const canReceivePayment =
+    user?.role === 'CLIENT_ADMIN' ||
+    user?.role === 'BILLING_OPERATOR' ||
+    user?.role === 'ACCOUNTANT';
 
   const { subtotal, grandTotal, roundOff } = useMemo(
     () =>
@@ -169,6 +179,7 @@ export function NewBillPage() {
     invoicesApi
       .get(id)
       .then((inv) => {
+        setLoadedInvoice(inv);
         setBillNo(inv.billNo);
         setInvoiceDate(inv.invoiceDate.slice(0, 10));
         setDueDate(inv.dueDate ? inv.dueDate.slice(0, 10) : '');
@@ -240,23 +251,8 @@ export function NewBillPage() {
     });
   }, [grandTotal, readonly]);
 
-  const searchParty = async (q: string) => {
-    setExternalId(q);
-    if (q.length < 2) {
-      setSearchResults([]);
-      setSearchOpen(false);
-      return;
-    }
-    try {
-      const results = await partiesApi.search(q);
-      setSearchResults(results);
-      setSearchOpen(results.length > 0);
-    } catch {
-      setSearchResults([]);
-    }
-  };
-
   const selectParty = (p: Party) => {
+    setSelectedParty(p);
     setPartyId(p.id);
     setSaveAsParty(false);
     setExternalId(p.externalId ?? '');
@@ -272,7 +268,24 @@ export function NewBillPage() {
     setAgeUnit(meta.ageUnit === 'M' ? 'M' : 'Y');
     setGender(meta.gender ?? '');
     setCareOf(meta.careOf ?? '');
-    setSearchOpen(false);
+  };
+
+  /** Back to a blank new party after "Change" on a selected one. */
+  const clearParty = () => {
+    setSelectedParty(null);
+    setPartyId(undefined);
+    setSaveAsParty(true);
+    setExternalId('');
+    setPhone('');
+    setName('');
+    setRefBy('');
+    setAddress('');
+    setGstin('');
+    setClassName('');
+    setAge('');
+    setAgeUnit('Y');
+    setGender('');
+    setCareOf('');
   };
 
   const updateLine = (key: string, patch: Partial<LineDraft>) => {
@@ -572,33 +585,29 @@ export function NewBillPage() {
                 </select>
               </Field>
             ) : null}
-            <Field label={partyIdLabel}>
-              <div className="search-dropdown">
-                <input
-                  value={externalId}
-                  onChange={(e) => void searchParty(e.target.value)}
-                  placeholder={`Search ${partyIdLabel}`}
-                  disabled={readonly}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  name="party-external-id"
+            {!readonly ? (
+              <div className="party-search-row">
+                <PartySearch
+                  partyLabel={partyLabel}
+                  partyIdLabel={partyIdLabel}
+                  selected={selectedParty}
+                  onSelect={selectParty}
+                  onClear={clearParty}
                 />
-                {searchOpen ? (
-                  <div className="search-results">
-                    {searchResults.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => selectParty(p)}
-                      >
-                        {p.externalId ?? '—'} · {p.name}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
               </div>
+            ) : null}
+            <Field label={partyIdLabel} htmlFor="party-ext-id">
+              <input
+                id="party-ext-id"
+                value={externalId}
+                onChange={(e) => setExternalId(e.target.value)}
+                placeholder="Optional"
+                disabled={readonly}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                name="party-external-id"
+              />
             </Field>
             <Field label="Phone" htmlFor="phone">
               <input
@@ -1141,85 +1150,124 @@ export function NewBillPage() {
 
         <div className="bill-form-section">
           <h3>Payment</h3>
-          <p className="muted" style={{ marginTop: 0 }}>
-            Pay the full amount, or enter less to leave a{' '}
-            <strong>balance due</strong> (partial / credit sale). Leave amounts
-            at 0 for a full credit bill.
-          </p>
-          <div className="payment-modes">
-            {payments.map((p, i) => (
-              <div key={p.mode} className="payment-row">
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={p.enabled}
-                    disabled={readonly}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      setPayments((prev) =>
-                        prev.map((x, j) =>
-                          j === i ? { ...x, enabled } : x,
-                        ),
-                      );
-                    }}
-                  />
-                  {p.mode}
-                </label>
-                <Field label="Amount">
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder=""
-                    value={p.enabled ? p.amount : ''}
-                    disabled={!p.enabled || readonly}
-                    onChange={(e) => {
-                      const amount = parseDecimalInput(e.target.value);
-                      setPayments((prev) =>
-                        prev.map((x, j) =>
-                          j === i ? { ...x, amount } : x,
-                        ),
-                      );
-                    }}
-                  />
-                </Field>
-                {p.mode === 'UPI' ? (
-                  <Field label="UPI Ref ID">
+          {!readonly ? (
+            <p className="muted" style={{ marginTop: 0 }}>
+              Pay the full amount, or enter less to leave a{' '}
+              <strong>balance due</strong> (partial / credit sale). Leave amounts
+              at 0 for a full credit bill.
+            </p>
+          ) : null}
+          {readonly && loadedInvoice ? (
+            <>
+              {payNotice ? <Alert variant="success">{payNotice}</Alert> : null}
+              <PaymentLedger
+                invoice={loadedInvoice}
+                onChanged={(updated) => {
+                  setLoadedInvoice(updated);
+                  setPayNotice('Payment reversed — balance due updated.');
+                }}
+              />
+              {loadedInvoice.status === 'FINALIZED' &&
+              canReceivePayment &&
+              toNum(loadedInvoice.balanceDue) > 0.01 ? (
+                <div className="btn-group" style={{ marginTop: '0.75rem' }}>
+                  <Button onClick={() => setReceiving(true)}>
+                    Receive payment
+                  </Button>
+                </div>
+              ) : null}
+              {receiving ? (
+                <ReceivePaymentDialog
+                  invoice={loadedInvoice}
+                  onClose={() => setReceiving(false)}
+                  onSaved={(updated, receipt) => {
+                    setReceiving(false);
+                    setLoadedInvoice(updated);
+                    setPayNotice(
+                      receipt.settled
+                        ? `Received ${formatInr(receipt.amount)} — bill settled in full.`
+                        : `Received ${formatInr(receipt.amount)} · balance due ${formatInr(updated.balanceDue)}`,
+                    );
+                  }}
+                />
+              ) : null}
+            </>
+          ) : (
+            <div className="payment-modes">
+              {payments.map((p, i) => (
+                <div key={p.mode} className="payment-row">
+                  <label className="checkbox">
                     <input
-                      value={p.upiRefId}
-                      disabled={!p.enabled || readonly}
+                      type="checkbox"
+                      checked={p.enabled}
+                      disabled={readonly}
                       onChange={(e) => {
-                        const upiRefId = e.target.value;
+                        const enabled = e.target.checked;
                         setPayments((prev) =>
                           prev.map((x, j) =>
-                            j === i ? { ...x, upiRefId } : x,
+                            j === i ? { ...x, enabled } : x,
+                          ),
+                        );
+                      }}
+                    />
+                    {p.mode}
+                  </label>
+                  <Field label="Amount">
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder=""
+                      value={p.enabled ? p.amount : ''}
+                      disabled={!p.enabled || readonly}
+                      onChange={(e) => {
+                        const amount = parseDecimalInput(e.target.value);
+                        setPayments((prev) =>
+                          prev.map((x, j) =>
+                            j === i ? { ...x, amount } : x,
                           ),
                         );
                       }}
                     />
                   </Field>
-                ) : p.mode === 'CARD' ? (
-                  <Field label="Card last 4">
-                    <input
-                      maxLength={4}
-                      value={p.cardLast4}
-                      disabled={!p.enabled || readonly}
-                      onChange={(e) => {
-                        const cardLast4 = e.target.value.replace(/\D/g, '');
-                        setPayments((prev) =>
-                          prev.map((x, j) =>
-                            j === i ? { ...x, cardLast4 } : x,
-                          ),
-                        );
-                      }}
-                    />
-                  </Field>
-                ) : (
-                  <div />
-                )}
-              </div>
-            ))}
-          </div>
+                  {p.mode === 'UPI' ? (
+                    <Field label="UPI Ref ID">
+                      <input
+                        value={p.upiRefId}
+                        disabled={!p.enabled || readonly}
+                        onChange={(e) => {
+                          const upiRefId = e.target.value;
+                          setPayments((prev) =>
+                            prev.map((x, j) =>
+                              j === i ? { ...x, upiRefId } : x,
+                            ),
+                          );
+                        }}
+                      />
+                    </Field>
+                  ) : p.mode === 'CARD' ? (
+                    <Field label="Card last 4">
+                      <input
+                        maxLength={4}
+                        value={p.cardLast4}
+                        disabled={!p.enabled || readonly}
+                        onChange={(e) => {
+                          const cardLast4 = e.target.value.replace(/\D/g, '');
+                          setPayments((prev) =>
+                            prev.map((x, j) =>
+                              j === i ? { ...x, cardLast4 } : x,
+                            ),
+                          );
+                        }}
+                      />
+                    </Field>
+                  ) : (
+                    <div />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
           {!readonly ? (
             <div className="payment-due-summary">
               <div>
@@ -1236,7 +1284,7 @@ export function NewBillPage() {
                     {formatInr(Math.max(0, grandTotal - paymentSum))}
                   </strong>
                   {dueDate ? ` · due ${dueDate}` : ' · set a due date above'}
-                  . Collect later from Bills → Record payment.
+                  . Collect later with Receive payment on the bill.
                 </Alert>
               ) : grandTotal > 0.01 ? (
                 <p className="muted">Fully paid — no balance due.</p>

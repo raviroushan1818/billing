@@ -11,6 +11,8 @@ import {
   DocumentType,
   EinvoiceStatus,
   InvoiceStatus,
+  PaymentMode,
+  PaymentStage,
   PaymentStatus,
   Prisma,
   SupplyType,
@@ -34,6 +36,7 @@ import {
   paymentsWithinTotal,
 } from '../common/gst.util';
 import { compactPartyMeta } from '../common/party-meta.util';
+import { istDateOf } from '../common/date-range.util';
 import {
   AddPaymentDto,
   CreateInvoiceDto,
@@ -54,6 +57,38 @@ function dec(n: number): Prisma.Decimal {
   return new Prisma.Decimal(n.toFixed(2));
 }
 
+/** Payment rows taken on the bill itself, with receipt no + running balance. */
+function atBillingPayments(
+  tenantId: string,
+  billNo: string,
+  grandTotal: number,
+  receivedById: string,
+  rows: Array<{
+    mode: PaymentMode;
+    amount: number;
+    upiRefId?: string;
+    cardLast4?: string;
+    notes?: string;
+  }>,
+): Prisma.InvoicePaymentCreateWithoutInvoiceInput[] {
+  let paid = 0;
+  return rows.map((p, i) => {
+    paid = round2(paid + Number(p.amount));
+    return {
+      tenantId,
+      mode: p.mode,
+      amount: dec(Number(p.amount)),
+      upiRefId: p.upiRefId,
+      cardLast4: p.cardLast4,
+      notes: p.notes,
+      receiptNo: `${billNo}/R${i + 1}`,
+      stage: PaymentStage.AT_BILLING,
+      balanceAfter: dec(Math.max(0, grandTotal - paid)),
+      receivedBy: { connect: { id: receivedById } },
+    };
+  });
+}
+
 const ACTOR_SELECT = {
   id: true,
   firstName: true,
@@ -69,7 +104,13 @@ const INVOICE_INCLUDE = {
       godown: { select: { id: true, name: true, code: true } },
     },
   },
-  payments: true,
+  payments: {
+    orderBy: [{ paidAt: 'asc' as const }, { createdAt: 'asc' as const }],
+    include: {
+      receivedBy: { select: ACTOR_SELECT },
+      reversedBy: { select: ACTOR_SELECT },
+    },
+  },
   createdBy: { select: ACTOR_SELECT },
   finalizedBy: { select: ACTOR_SELECT },
   voidedBy: { select: ACTOR_SELECT },
@@ -286,6 +327,7 @@ export class InvoicesService {
           balanceDue: dec(balanceDue),
           paymentStatus,
           dueDate,
+          settledAt: paymentStatus === PaymentStatus.PAID ? new Date() : null,
           notes: dto.notes,
           partyMeta: compactPartyMeta(dto.partyMeta),
           createdById: actor.userId,
@@ -315,14 +357,13 @@ export class InvoicesService {
             })),
           },
           payments: {
-            create: paymentRows.map((p) => ({
-              tenantId: actor.tenantId,
-              mode: p.mode,
-              amount: dec(p.amount),
-              upiRefId: p.upiRefId,
-              cardLast4: p.cardLast4,
-              notes: p.notes,
-            })),
+            create: atBillingPayments(
+              actor.tenantId,
+              finalBillNo,
+              grandTotal,
+              actor.userId,
+              paymentRows,
+            ),
           },
         },
         include: {
@@ -534,6 +575,7 @@ export class InvoicesService {
           balanceDue: dec(balanceDue),
           paymentStatus,
           dueDate,
+          settledAt: paymentStatus === PaymentStatus.PAID ? new Date() : null,
           notes: dto.notes,
           partyMeta: compactPartyMeta(dto.partyMeta),
           ...(nextStatus === InvoiceStatus.FINALIZED &&
@@ -562,14 +604,13 @@ export class InvoicesService {
             })),
           },
           payments: {
-            create: paymentRows.map((p) => ({
-              tenantId: actor.tenantId,
-              mode: p.mode,
-              amount: dec(p.amount),
-              upiRefId: p.upiRefId,
-              cardLast4: p.cardLast4,
-              notes: p.notes,
-            })),
+            create: atBillingPayments(
+              actor.tenantId,
+              existing.billNo,
+              grandTotal,
+              actor.userId,
+              paymentRows,
+            ),
           },
         },
       });
@@ -611,56 +652,235 @@ export class InvoicesService {
   }
 
   async addPayment(actor: AuthUser, invoiceId: string, dto: AddPaymentDto) {
-    const invoice = await this.prisma.invoice.findFirst({
-      where: { id: invoiceId, tenantId: actor.tenantId, deletedAt: null },
-      include: { payments: true },
-    });
-    if (!invoice) throw new NotFoundException('Invoice not found');
-    if (invoice.status === InvoiceStatus.VOID) {
-      throw new BadRequestException('Cannot pay a void invoice');
+    const amount = round2(Number(dto.amount));
+    if (dto.mode === PaymentMode.UPI && !dto.upiRefId?.trim()) {
+      throw new BadRequestException('UPI reference ID is required for UPI payments');
     }
-    const grand = Number(invoice.grandTotal);
-    const already = Number(invoice.amountPaid);
-    const nextPaid = round2(already + Number(dto.amount));
-    if (nextPaid > grand + 0.01) {
-      throw new BadRequestException(
-        `Payment would exceed balance (due ${round2(grand - already).toFixed(2)})`,
-      );
+    if (dto.mode === PaymentMode.CARD && !/^\d{4}$/.test(dto.cardLast4?.trim() ?? '')) {
+      throw new BadRequestException('Card last 4 digits are required for card payments');
     }
-    await this.prisma.invoicePayment.create({
-      data: {
-        tenantId: actor.tenantId,
-        invoiceId,
-        mode: dto.mode,
-        amount: dec(dto.amount),
-        upiRefId: dto.upiRefId,
-        cardLast4: dto.cardLast4,
-        notes: dto.notes,
-      },
-    });
-    const balanceDue = round2(Math.max(0, grand - nextPaid));
-    const paymentStatus = paymentStatusFromAmounts(
-      nextPaid,
-      grand,
-    ) as PaymentStatus;
-    await this.prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        amountPaid: dec(nextPaid),
-        balanceDue: dec(balanceDue),
+
+    const now = new Date();
+    const paidAt = dto.paidAt ? new Date(dto.paidAt) : now;
+    if (Number.isNaN(paidAt.getTime())) {
+      throw new BadRequestException('Invalid payment date');
+    }
+    if (paidAt.getTime() > now.getTime() + 5 * 60 * 1000) {
+      throw new BadRequestException('Payment date cannot be in the future');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Row lock so two cashiers cannot overpay the same bill concurrently.
+      await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${invoiceId} FOR UPDATE`;
+      const invoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, tenantId: actor.tenantId, deletedAt: null },
+        include: { _count: { select: { payments: true } } },
+      });
+      if (!invoice) throw new NotFoundException('Invoice not found');
+      if (invoice.status !== InvoiceStatus.FINALIZED) {
+        throw new BadRequestException(
+          invoice.status === InvoiceStatus.VOID
+            ? 'Cannot record payment on a void invoice'
+            : 'Finalize the bill before recording payments against it',
+        );
+      }
+      // invoiceDate is a calendar date; compare against the IST day of payment.
+      if (istDateOf(paidAt) < invoice.invoiceDate.toISOString().slice(0, 10)) {
+        throw new BadRequestException(
+          'Payment date cannot be before the invoice date',
+        );
+      }
+
+      const grand = Number(invoice.grandTotal);
+      const balanceBefore = round2(Math.max(0, grand - Number(invoice.amountPaid)));
+      if (balanceBefore <= 0.01) {
+        throw new BadRequestException('This bill has no balance due');
+      }
+      if (amount > balanceBefore + 0.01) {
+        throw new BadRequestException(
+          `Payment ${amount.toFixed(2)} exceeds balance due ${balanceBefore.toFixed(2)}`,
+        );
+      }
+      const nextPaid = round2(Number(invoice.amountPaid) + amount);
+      const balanceDue = round2(Math.max(0, grand - nextPaid));
+      const paymentStatus = paymentStatusFromAmounts(
+        nextPaid,
+        grand,
+      ) as PaymentStatus;
+      const receiptNo = `${invoice.billNo}/R${invoice._count.payments + 1}`;
+
+      const payment = await tx.invoicePayment.create({
+        data: {
+          tenantId: actor.tenantId,
+          invoiceId,
+          mode: dto.mode,
+          amount: dec(amount),
+          upiRefId: dto.upiRefId?.trim() || null,
+          cardLast4: dto.cardLast4?.trim() || null,
+          notes: dto.notes?.trim() || null,
+          paidAt,
+          receiptNo,
+          stage: PaymentStage.DUE_COLLECTION,
+          balanceAfter: dec(balanceDue),
+          receivedById: actor.userId,
+        },
+      });
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          amountPaid: dec(nextPaid),
+          balanceDue: dec(balanceDue),
+          paymentStatus,
+          settledAt: paymentStatus === PaymentStatus.PAID ? paidAt : null,
+        },
+      });
+      return {
+        billNo: invoice.billNo,
+        paymentId: payment.id,
+        receiptNo,
+        balanceBefore,
+        balanceDue,
         paymentStatus,
-      },
+      };
     });
+
     await this.audit.log({
       tenantId: actor.tenantId,
       userId: actor.userId,
-      action: 'INVOICE_PAYMENT_ADDED',
+      action:
+        result.paymentStatus === PaymentStatus.PAID
+          ? 'INVOICE_DUE_SETTLED'
+          : 'INVOICE_PAYMENT_ADDED',
       entityType: 'Invoice',
       entityId: invoiceId,
-      meta: { amount: dto.amount, mode: dto.mode },
+      meta: {
+        billNo: result.billNo,
+        receiptNo: result.receiptNo,
+        paymentId: result.paymentId,
+        amount,
+        mode: dto.mode,
+        upiRefId: dto.upiRefId,
+        cardLast4: dto.cardLast4,
+        paidAt: paidAt.toISOString(),
+        balanceBefore: result.balanceBefore,
+        balanceAfter: result.balanceDue,
+      },
     });
     void this.hms.notifyHmsPayment(invoiceId, actor.tenantId);
     return this.get(actor.tenantId, invoiceId);
+  }
+
+  /**
+   * Reverse a wrongly entered payment. The row is kept (marked reversed with
+   * who/when/why) and the bill's paid total, balance and status are recomputed
+   * from the remaining payments.
+   */
+  async reversePayment(
+    actor: AuthUser,
+    invoiceId: string,
+    paymentId: string,
+    reason: string,
+  ) {
+    const why = reason?.trim() ?? '';
+    if (why.length < 3) {
+      throw new BadRequestException('Give a reason for reversing this payment');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Invoice" WHERE id = ${invoiceId} FOR UPDATE`;
+      const invoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, tenantId: actor.tenantId, deletedAt: null },
+      });
+      if (!invoice) throw new NotFoundException('Invoice not found');
+      if (invoice.status !== InvoiceStatus.FINALIZED) {
+        throw new BadRequestException(
+          'Payments can only be reversed on a finalized bill',
+        );
+      }
+      const payment = await tx.invoicePayment.findFirst({
+        where: { id: paymentId, invoiceId, tenantId: actor.tenantId },
+      });
+      if (!payment) throw new NotFoundException('Payment not found');
+      if (payment.reversedAt) {
+        throw new BadRequestException('This payment is already reversed');
+      }
+
+      await tx.invoicePayment.update({
+        where: { id: paymentId },
+        data: {
+          reversedAt: new Date(),
+          reversedById: actor.userId,
+          reversalReason: why,
+        },
+      });
+      const totals = await this.recomputePaymentTotals(
+        tx,
+        invoiceId,
+        Number(invoice.grandTotal),
+      );
+      return {
+        billNo: invoice.billNo,
+        payment,
+        balanceBefore: Number(invoice.balanceDue),
+        ...totals,
+      };
+    });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      action: 'INVOICE_PAYMENT_REVERSED',
+      entityType: 'Invoice',
+      entityId: invoiceId,
+      meta: {
+        billNo: result.billNo,
+        receiptNo: result.payment.receiptNo,
+        paymentId,
+        amount: Number(result.payment.amount),
+        mode: result.payment.mode,
+        paidAt: result.payment.paidAt.toISOString(),
+        reason: why,
+        balanceBefore: result.balanceBefore,
+        balanceAfter: result.balanceDue,
+      },
+    });
+    void this.hms.notifyHmsPayment(invoiceId, actor.tenantId);
+    return this.get(actor.tenantId, invoiceId);
+  }
+
+  /** Rebuild paid/balance/status and per-payment running balances from live payments. */
+  private async recomputePaymentTotals(
+    tx: Prisma.TransactionClient,
+    invoiceId: string,
+    grand: number,
+  ) {
+    const live = await tx.invoicePayment.findMany({
+      where: { invoiceId, reversedAt: null },
+      orderBy: [{ paidAt: 'asc' }, { createdAt: 'asc' }],
+    });
+    let paid = 0;
+    for (const p of live) {
+      paid = round2(paid + Number(p.amount));
+      await tx.invoicePayment.update({
+        where: { id: p.id },
+        data: { balanceAfter: dec(Math.max(0, grand - paid)) },
+      });
+    }
+    const balanceDue = round2(Math.max(0, grand - paid));
+    const paymentStatus = paymentStatusFromAmounts(paid, grand) as PaymentStatus;
+    await tx.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        amountPaid: dec(paid),
+        balanceDue: dec(balanceDue),
+        paymentStatus,
+        settledAt:
+          paymentStatus === PaymentStatus.PAID
+            ? (live[live.length - 1]?.paidAt ?? new Date())
+            : null,
+      },
+    });
+    return { amountPaid: paid, balanceDue, paymentStatus };
   }
 
   createCreditNote(actor: AuthUser, dto: CreateNoteDto) {
@@ -1098,6 +1318,8 @@ export class InvoicesService {
 
     return {
       ...invoice,
+      // Reversed entries stay in the ledger but never print as payments.
+      payments: invoice.payments.filter((p) => !p.reversedAt),
       brand,
       gst,
     };

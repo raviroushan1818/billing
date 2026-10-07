@@ -72,8 +72,52 @@ export class ReportsController {
     UserRole.ACCOUNTANT,
     UserRole.VIEWER,
   )
-  receivables(@CurrentUser() user: AuthUser) {
-    return this.reports.receivables(user.tenantId);
+  receivables(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.reports.receivables(user.tenantId, from, to);
+  }
+
+  @Get('due-settlements')
+  @Roles(
+    UserRole.CLIENT_ADMIN,
+    UserRole.BILLING_OPERATOR,
+    UserRole.ACCOUNTANT,
+    UserRole.VIEWER,
+  )
+  dueSettlements(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.reports.dueSettlements(user.tenantId, from, to);
+  }
+
+  @Get('payment-register')
+  @Roles(
+    UserRole.CLIENT_ADMIN,
+    UserRole.BILLING_OPERATOR,
+    UserRole.ACCOUNTANT,
+    UserRole.VIEWER,
+  )
+  paymentRegister(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.reports.paymentRegister(user.tenantId, from, to);
+  }
+
+  @Get('hsn-summary')
+  @Roles(UserRole.CLIENT_ADMIN, UserRole.ACCOUNTANT, UserRole.VIEWER)
+  hsnSummary(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    return this.reports.hsnSummary(user.tenantId, from, to);
   }
 
   @Get('itc')

@@ -82,6 +82,12 @@ enum PaymentMode {
   CARD
 }
 
+/// When a payment was taken: on the bill itself, or later against its balance due
+enum PaymentStage {
+  AT_BILLING
+  DUE_COLLECTION
+}
+
 enum EinvoiceStatus {
   NOT_APPLICABLE
   PENDING
@@ -274,6 +280,8 @@ model User {
   invoicesFinalized Invoice[] @relation("InvoiceFinalizedBy")
   workspaceNotes  WorkspaceNote[] @relation("NoteCreatedBy")
   subscriptionsAssigned TenantSubscription[] @relation("SubscriptionAssignedBy")
+  paymentsReceived InvoicePayment[] @relation("PaymentReceivedBy")
+  paymentsReversed InvoicePayment[] @relation("PaymentReversedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -442,6 +450,8 @@ model Invoice {
   balanceDue      Decimal        @default(0) @db.Decimal(14, 2)
   paymentStatus   PaymentStatus  @default(UNPAID)
   dueDate         DateTime?
+  /// When the balance due reached zero (null while unpaid / partial)
+  settledAt       DateTime?
   notes           String?
   /// Snapshot of profile fields (age, gender, careOf, class)
   partyMeta       Json           @default("{}")
@@ -523,10 +533,25 @@ model InvoicePayment {
   cardLast4 String?
   notes     String?
   paidAt    DateTime    @default(now())
+  /// Receipt number, e.g. INV-202627-0240/R2
+  receiptNo String?
+  stage     PaymentStage @default(AT_BILLING)
+  /// Invoice balance due immediately after this payment
+  balanceAfter Decimal? @db.Decimal(14, 2)
+  receivedById String?
+  receivedBy   User?    @relation("PaymentReceivedBy", fields: [receivedById], references: [id], onDelete: SetNull)
+  createdAt DateTime    @default(now())
+  /// Reversal keeps the row for the record; reversed rows never count as paid
+  reversedAt     DateTime?
+  reversedById   String?
+  reversedBy     User?    @relation("PaymentReversedBy", fields: [reversedById], references: [id], onDelete: SetNull)
+  reversalReason String?
 
   @@index([invoiceId])
   @@index([tenantId])
   @@index([tenantId, mode])
+  @@index([tenantId, paidAt])
+  @@index([tenantId, stage, paidAt])
 }
 
 model MediaObject {

@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoicesApi, reportsApi } from '../../api';
-import type { CollectionsReport, DayBookReport, PrintFormat } from '../../types';
+import type {
+  CollectionsReport,
+  DayBookReport,
+  DueSettlementsReport,
+  Invoice,
+  PrintFormat,
+} from '../../types';
 import {
+  formatDate,
+  formatDateTime,
   formatInr,
+  PAYMENT_MODE_LABEL,
   formatPayments,
   shiftDaysIso,
   startOfMonthIso,
@@ -20,7 +29,27 @@ import {
   StatusBadge,
 } from '../../components/ui';
 import { BarChart3 } from 'lucide-react';
+import { ActionMenu } from '../../components/ActionMenu';
+import {
+  csvDueCollections,
+  csvOutstanding,
+  csvSettled,
+  exportDailySummary,
+  exportDueCollections,
+  exportOutstanding,
+  exportSettled,
+  exportDayBook,
+  exportHsnSummary,
+  exportItc,
+  exportPaymentRegister,
+} from '../../utils/reportExports';
+import {
+  PaymentHistoryDialog,
+  ReceivePaymentDialog,
+} from '../../components/payments';
 import { useAuth } from '../../auth/AuthContext';
+
+type DueTab = 'outstanding' | 'collections' | 'settled';
 
 function emptyCollections(): CollectionsReport {
   return { cash: 0, upi: 0, card: 0, total: 0, paymentCount: 0 };
@@ -44,6 +73,16 @@ export function ReportsPage() {
   const [receivables, setReceivables] = useState<Awaited<
     ReturnType<typeof reportsApi.receivables>
   > | null>(null);
+  const [dues, setDues] = useState<DueSettlementsReport | null>(null);
+  const [dueTab, setDueTab] = useState<DueTab>('outstanding');
+  const [dueSearch, setDueSearch] = useState('');
+  const [payingFor, setPayingFor] = useState<Invoice | null>(null);
+  const [historyFor, setHistoryFor] = useState<Invoice | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const canReceive =
+    user?.role === 'CLIENT_ADMIN' ||
+    user?.role === 'BILLING_OPERATOR' ||
+    user?.role === 'ACCOUNTANT';
   const [itc, setItc] = useState<Awaited<
     ReturnType<typeof reportsApi.itc>
   > | null>(null);
@@ -52,15 +91,17 @@ export function ReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [book, coll, recv, itcRep] = await Promise.all([
+      const [book, coll, recv, itcRep, dueRep] = await Promise.all([
         reportsApi.dayBook(rangeFrom, rangeTo),
         reportsApi.collections(rangeFrom, rangeTo),
         reportsApi.receivables().catch(() => null),
         reportsApi.itc(rangeFrom, rangeTo).catch(() => null),
+        reportsApi.dueSettlements(rangeFrom, rangeTo).catch(() => null),
       ]);
       setDayBook(book);
       setCollections(coll);
       setReceivables(recv);
+      setDues(dueRep);
       setItc(itcRep);
     } catch (e) {
       setDayBook(null);
@@ -85,11 +126,16 @@ export function ReportsPage() {
     void load(start, end);
   };
 
-  const exportGstr1 = async () => {
+  /** Runs one export for the chosen From/To range. */
+  const runExport = async (fn: (from: string, to: string) => Promise<unknown>) => {
+    if (!from || !to || from > to) {
+      setError('Choose a valid From and To date before exporting.');
+      return;
+    }
     setExportBusy(true);
     setError(null);
     try {
-      await reportsApi.gstr1(from, to);
+      await fn(from, to);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Export failed');
     } finally {
@@ -121,6 +167,37 @@ export function ReportsPage() {
     }
   };
 
+  const openBill = async (id: string, then: 'pay' | 'history') => {
+    try {
+      setError(null);
+      const inv = await invoicesApi.get(id);
+      if (then === 'pay') setPayingFor(inv);
+      else setHistoryFor(inv);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open bill');
+    }
+  };
+
+  const needle = dueSearch.trim().toLowerCase();
+  const matches = (...fields: Array<string | null | undefined>) =>
+    !needle || fields.some((f) => f?.toLowerCase().includes(needle));
+  const outstandingRows = (receivables?.rows ?? []).filter((r) =>
+    matches(r.billNo, r.partyName, r.partyPhone),
+  );
+  const collectionRows = (dues?.collections ?? []).filter((r) =>
+    matches(r.billNo, r.partyName, r.partyPhone, r.receiptNo, r.reference),
+  );
+  const settledRows = (dues?.settled ?? []).filter((r) =>
+    matches(r.billNo, r.partyName, r.partyPhone),
+  );
+
+  /** Exports the dues tab currently on screen (respects the search box). */
+  const exportDues = () => {
+    if (dueTab === 'outstanding') csvOutstanding(outstandingRows);
+    else if (dueTab === 'collections') csvDueCollections(collectionRows, from, to);
+    else csvSettled(settledRows, from, to);
+  };
+
   const totals = dayBook?.totals;
   const coll = collections ?? emptyCollections();
   const entries = dayBook?.entries ?? [];
@@ -130,7 +207,7 @@ export function ReportsPage() {
       <PageHeader
         icon={<BarChart3 size={22} />}
         title="Reports"
-        subtitle="Day book, collections, GST summary & GSTR-1 export"
+        subtitle="Day book, collections, dues & settlements, GST summary & GSTR-1 export"
       />
 
       {error ? <Alert>{error}</Alert> : null}
@@ -177,15 +254,50 @@ export function ReportsPage() {
           >
             This month
           </Button>
-          {canExportGstr1 ? (
-            <Button
-              variant="secondary"
-              onClick={() => void exportGstr1()}
-              disabled={exportBusy || loading}
-            >
-              {exportBusy ? 'Exporting…' : 'Download GSTR-1 JSON'}
-            </Button>
-          ) : null}
+          <ActionMenu
+            label={exportBusy ? 'Exporting…' : 'Export CSV'}
+            items={[
+              {
+                label: 'Daily summary (sales, GST, collections)',
+                onSelect: () => void runExport(exportDailySummary),
+              },
+              {
+                label: 'Day book — bill-wise',
+                onSelect: () => void runExport(exportDayBook),
+              },
+              {
+                label: 'Payment register — all receipts',
+                onSelect: () => void runExport(exportPaymentRegister),
+              },
+              {
+                label: 'HSN / GST rate summary',
+                hidden: !canExportGstr1 && user?.role !== 'VIEWER',
+                onSelect: () => void runExport(exportHsnSummary),
+              },
+              {
+                label: 'Outstanding dues',
+                onSelect: () => void runExport(exportOutstanding),
+              },
+              {
+                label: 'Due collections',
+                onSelect: () => void runExport(exportDueCollections),
+              },
+              {
+                label: 'Settled bills',
+                onSelect: () => void runExport(exportSettled),
+              },
+              {
+                label: 'Purchase ITC',
+                hidden: !canExportGstr1 && user?.role !== 'VIEWER',
+                onSelect: () => void runExport(exportItc),
+              },
+              {
+                label: 'GSTR-1 JSON (for GST portal)',
+                hidden: !canExportGstr1,
+                onSelect: () => void runExport((f, t) => reportsApi.gstr1(f, t)),
+              },
+            ]}
+          />
         </div>
 
         <h2 className="panel-title">Collections by mode</h2>
@@ -285,53 +397,290 @@ export function ReportsPage() {
         )}
       </div>
 
-      {receivables ? (
-        <div className="panel">
+      <div className="panel">
+        <div className="panel-title-row">
           <h2 className="panel-title">
-            Receivables / ageing
+            Dues &amp; settlements
             <span className="panel-title-meta">
               {' '}
-              · {receivables.summary.count} open ·{' '}
-              {formatInr(receivables.summary.totalDue)} due
+              · {from} → {to}
             </span>
           </h2>
+          <div className="inline-actions">
+            <input
+              aria-label="Search dues"
+              placeholder="Search bill, party, phone, receipt…"
+              value={dueSearch}
+              onChange={(e) => setDueSearch(e.target.value)}
+            />
+            <Button variant="secondary" onClick={() => exportDues()}>
+              Export CSV
+            </Button>
+          </div>
+        </div>
+        {notice ? <Alert variant="success">{notice}</Alert> : null}
+
+        <div className="stat-row" style={{ marginTop: '1rem' }}>
+          <div className="stat">
+            <div className="stat-label">Outstanding now</div>
+            <div className="stat-value pay-amt-due">
+              {formatInr(receivables?.summary.totalDue ?? 0)}
+            </div>
+            <div className="stat-hint">
+              {receivables?.summary.count ?? 0} open bill(s), all dates
+            </div>
+          </div>
+          <div className="stat">
+            <div className="stat-label">Credit given in period</div>
+            <div className="stat-value">
+              {formatInr(dues?.summary.creditGiven ?? 0)}
+            </div>
+            <div className="stat-hint">Left unpaid at billing</div>
+          </div>
+          <div className="stat">
+            <div className="stat-label">Dues recovered in period</div>
+            <div className="stat-value pay-amt-in">
+              {formatInr(dues?.summary.recovered ?? 0)}
+            </div>
+            <div className="stat-hint">
+              {dues?.summary.collectionCount ?? 0} payment(s) · Cash{' '}
+              {formatInr(dues?.summary.recoveredByMode.CASH ?? 0)} · UPI{' '}
+              {formatInr(dues?.summary.recoveredByMode.UPI ?? 0)} · Card{' '}
+              {formatInr(dues?.summary.recoveredByMode.CARD ?? 0)}
+            </div>
+          </div>
+          <div className="stat">
+            <div className="stat-label">Bills settled in period</div>
+            <div className="stat-value">{dues?.summary.settledCount ?? 0}</div>
+            <div className="stat-hint">Balance cleared to zero</div>
+          </div>
+        </div>
+
+        {receivables ? (
           <p className="muted">
-            Current {formatInr(receivables.summary.byBucket.current ?? 0)} · 1–30{' '}
-            {formatInr(receivables.summary.byBucket['1-30'] ?? 0)} · 31–60{' '}
+            Ageing — Not yet due {formatInr(receivables.summary.byBucket.current ?? 0)} ·
+            1–30 days {formatInr(receivables.summary.byBucket['1-30'] ?? 0)} · 31–60{' '}
             {formatInr(receivables.summary.byBucket['31-60'] ?? 0)} · 61–90{' '}
             {formatInr(receivables.summary.byBucket['61-90'] ?? 0)} · 90+{' '}
             {formatInr(receivables.summary.byBucket['90+'] ?? 0)}
           </p>
+        ) : null}
+
+        <div className="report-tabs" role="tablist">
+          {(
+            [
+              ['outstanding', 'Outstanding', outstandingRows.length],
+              ['collections', 'Due collections', collectionRows.length],
+              ['settled', 'Settled bills', settledRows.length],
+            ] as Array<[DueTab, string, number]>
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={dueTab === key}
+              className={dueTab === key ? 'active' : undefined}
+              onClick={() => setDueTab(key)}
+            >
+              {label}
+              <span className="tab-count">{count}</span>
+            </button>
+          ))}
+        </div>
+
+        {dueTab === 'outstanding' ? (
           <DataTable
+            stackOnMobile
             columns={[
-              { key: 'billNo', label: 'Bill' },
+              { key: 'billNo', label: 'Bill', nowrap: true },
               { key: 'party', label: 'Party' },
-              { key: 'due', label: 'Due' },
-              { key: 'balance', label: 'Balance', align: 'right' },
-              { key: 'age', label: 'Age' },
+              { key: 'total', label: 'Bill total', align: 'right' },
+              { key: 'paid', label: 'Paid', align: 'right' },
+              { key: 'balance', label: 'Balance due', align: 'right' },
+              { key: 'due', label: 'Due date' },
+              { key: 'last', label: 'Last payment' },
               { key: 'status', label: 'Status' },
-              { key: 'actions', label: '' },
+              { key: 'actions', label: '', nowrap: true },
             ]}
-            rows={receivables.rows.map((r) => ({
+            rows={outstandingRows.map((r) => ({
               id: r.id,
               cells: {
-                billNo: r.billNo,
-                party: r.partyName,
-                due: r.dueDate,
-                balance: formatInr(r.balanceDue),
-                age: `${r.daysPastDue}d (${r.bucket})`,
-                status: r.paymentStatus,
+                billNo: (
+                  <>
+                    {r.billNo}
+                    <span className="cell-sub">billed {formatDate(r.invoiceDate)}</span>
+                  </>
+                ),
+                party: (
+                  <>
+                    {r.partyName}
+                    {r.partyPhone ? <span className="cell-sub">{r.partyPhone}</span> : null}
+                  </>
+                ),
+                total: formatInr(r.grandTotal),
+                paid: formatInr(r.amountPaid),
+                balance: <strong className="pay-amt-due">{formatInr(r.balanceDue)}</strong>,
+                due: (
+                  <>
+                    {formatDate(r.dueDate)}
+                    <span className={`cell-sub${r.daysPastDue > 0 ? ' pay-amt-due' : ''}`}>
+                      {r.daysPastDue > 0 ? `${r.daysPastDue} day(s) overdue` : 'not yet due'}
+                    </span>
+                  </>
+                ),
+                last: r.lastPaymentAt ? (
+                  <>
+                    {formatInr(r.lastPaymentAmount)}{' '}
+                    {r.lastPaymentMode ? PAYMENT_MODE_LABEL[r.lastPaymentMode] : ''}
+                    <span className="cell-sub">{formatDateTime(r.lastPaymentAt)}</span>
+                  </>
+                ) : (
+                  <span className="muted">No payment yet</span>
+                ),
+                status: <StatusBadge status={r.paymentStatus} />,
                 actions: (
-                  <Button variant="secondary" onClick={() => void printBill(r.id)}>
-                    Print
+                  <div className="inline-actions">
+                    {canReceive ? (
+                      <Button onClick={() => void openBill(r.id, 'pay')}>
+                        Receive
+                      </Button>
+                    ) : null}
+                    <Button variant="secondary" onClick={() => void openBill(r.id, 'history')}>
+                      History
+                    </Button>
+                    <Button variant="secondary" onClick={() => void printBill(r.id)}>
+                      Print
+                    </Button>
+                  </div>
+                ),
+              },
+            }))}
+            emptyText="No outstanding balances. All bills are settled."
+          />
+        ) : null}
+
+        {dueTab === 'collections' ? (
+          <DataTable
+            stackOnMobile
+            columns={[
+              { key: 'receipt', label: 'Receipt', nowrap: true },
+              { key: 'when', label: 'Received on', nowrap: true },
+              { key: 'bill', label: 'Bill', nowrap: true },
+              { key: 'party', label: 'Party' },
+              { key: 'mode', label: 'Mode' },
+              { key: 'before', label: 'Balance before', align: 'right' },
+              { key: 'amount', label: 'Received', align: 'right' },
+              { key: 'after', label: 'Balance after', align: 'right' },
+              { key: 'by', label: 'Received by' },
+              { key: 'actions', label: '', nowrap: true },
+            ]}
+            rows={collectionRows.map((r) => ({
+              id: r.id,
+              cells: {
+                receipt: <span className="mono">{r.receiptNo ?? '—'}</span>,
+                when: (
+                  <>
+                    {formatDateTime(r.paidAt)}
+                    {r.notes ? <span className="cell-sub">{r.notes}</span> : null}
+                  </>
+                ),
+                bill: (
+                  <>
+                    {r.billNo}
+                    <span className="cell-sub">
+                      billed {formatDate(r.invoiceDate)} · +{r.daysAfterBill}d
+                    </span>
+                  </>
+                ),
+                party: (
+                  <>
+                    {r.partyName}
+                    {r.partyPhone ? <span className="cell-sub">{r.partyPhone}</span> : null}
+                  </>
+                ),
+                mode: (
+                  <>
+                    {PAYMENT_MODE_LABEL[r.mode] ?? r.mode}
+                    {r.reference ? <span className="cell-sub mono">{r.reference}</span> : null}
+                  </>
+                ),
+                before: r.balanceBefore != null ? formatInr(r.balanceBefore) : '—',
+                amount: <strong className="pay-amt-in">{formatInr(r.amount)}</strong>,
+                after: r.settled ? (
+                  <StatusBadge status="PAID" />
+                ) : r.balanceAfter != null ? (
+                  formatInr(r.balanceAfter)
+                ) : (
+                  '—'
+                ),
+                by: r.receivedBy ?? '—',
+                actions: (
+                  <Button variant="secondary" onClick={() => void openBill(r.invoiceId, 'history')}>
+                    History
                   </Button>
                 ),
               },
             }))}
-            emptyText="No outstanding balances."
+            emptyText="No payments were collected against dues in this period."
           />
-        </div>
-      ) : null}
+        ) : null}
+
+        {dueTab === 'settled' ? (
+          <DataTable
+            stackOnMobile
+            columns={[
+              { key: 'bill', label: 'Bill', nowrap: true },
+              { key: 'party', label: 'Party' },
+              { key: 'total', label: 'Bill total', align: 'right' },
+              { key: 'atBilling', label: 'Paid at billing', align: 'right' },
+              { key: 'later', label: 'Collected later', align: 'right' },
+              { key: 'settled', label: 'Settled on' },
+              { key: 'actions', label: '', nowrap: true },
+            ]}
+            rows={settledRows.map((r) => ({
+              id: r.id,
+              cells: {
+                bill: (
+                  <>
+                    {r.billNo}
+                    <span className="cell-sub">billed {formatDate(r.invoiceDate)}</span>
+                  </>
+                ),
+                party: (
+                  <>
+                    {r.partyName}
+                    {r.partyPhone ? <span className="cell-sub">{r.partyPhone}</span> : null}
+                  </>
+                ),
+                total: formatInr(r.grandTotal),
+                atBilling: formatInr(r.paidAtBilling),
+                later: (
+                  <>
+                    {formatInr(r.collectedLater)}
+                    <span className="cell-sub">
+                      {r.installments} instalment{r.installments === 1 ? '' : 's'}
+                    </span>
+                  </>
+                ),
+                settled: (
+                  <>
+                    {formatDateTime(r.settledAt)}
+                    <span className="cell-sub pay-amt-in">
+                      {r.daysToSettle} day(s) after billing
+                    </span>
+                  </>
+                ),
+                actions: (
+                  <Button variant="secondary" onClick={() => void openBill(r.id, 'history')}>
+                    History
+                  </Button>
+                ),
+              },
+            }))}
+            emptyText="No credit bills were fully settled in this period."
+          />
+        ) : null}
+      </div>
 
       {itc ? (
         <div className="panel">
@@ -384,6 +733,37 @@ export function ReportsPage() {
             emptyText="No purchases in this period."
           />
         </div>
+      ) : null}
+      {payingFor ? (
+        <ReceivePaymentDialog
+          invoice={payingFor}
+          onClose={() => setPayingFor(null)}
+          onSaved={(updated, receipt) => {
+            setPayingFor(null);
+            setNotice(
+              receipt.settled
+                ? `${updated.billNo} settled in full — received ${formatInr(receipt.amount)}`
+                : `Received ${formatInr(receipt.amount)} on ${updated.billNo} · balance due ${formatInr(updated.balanceDue)}`,
+            );
+            void load();
+          }}
+        />
+      ) : null}
+      {historyFor ? (
+        <PaymentHistoryDialog
+          key={`${historyFor.id}-${historyFor.amountPaid}`}
+          invoice={historyFor}
+          canReceive={canReceive}
+          onClose={() => setHistoryFor(null)}
+          onChanged={(updated) => {
+            setHistoryFor(updated);
+            void load();
+          }}
+          onReceive={(latest) => {
+            setHistoryFor(null);
+            setPayingFor(latest);
+          }}
+        />
       ) : null}
     </>
   );

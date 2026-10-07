@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   BarChart3,
   CreditCard,
@@ -33,8 +33,11 @@ import {
 import { useTenantProfile } from '../hooks/useTenantProfile';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { BrandLogo } from '../components/BrandLogo';
+import { NavBackdrop, NavToggle, useMobileNav } from './MobileNav';
 
 export function AppShell() {
+  const nav = useMobileNav();
+  const { pathname } = useLocation();
   const { user, logout } = useAuth();
   const { tenant } = useTenantProfile();
   const manageSettings = user ? canManageSettings(user.role) : false;
@@ -43,8 +46,9 @@ export function AppShell() {
   const recycleBin = user ? canAccessRecycleBin(user.role) : false;
 
   return (
-    <div className="shell">
-      <aside className="sidebar">
+    <div className={`shell${nav.open ? ' nav-open' : ''}`}>
+      <NavBackdrop open={nav.open} onClose={nav.close} />
+      <aside className="sidebar" id="app-sidebar">
         <div className="sidebar-brand">
           <BrandLogo className="sidebar-logo" decorative />
           <div className="sidebar-brand-copy">
@@ -100,7 +104,8 @@ export function AppShell() {
           <NavLink
             to="/app/bills"
             className={({ isActive }) =>
-              `nav-link${isActive ? ' active' : ''}`
+              // /app/bills/new belongs to "New Bill", not the register.
+              `nav-link${isActive && pathname !== '/app/bills/new' ? ' active' : ''}`
             }
           >
             <FileText size={16} />
@@ -283,6 +288,7 @@ export function AppShell() {
       </aside>
       <div className="shell-main">
         <header className="topbar">
+          <NavToggle open={nav.open} onToggle={nav.toggle} />
           <span className="topbar-meta">
             {tenant?.profileType ?? 'Tenant'} · GST Billing
           </span>

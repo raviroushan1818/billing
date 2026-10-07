@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  MaxLength,
   IsEmail,
   IsEnum,
   IsIn,
@@ -185,6 +186,13 @@ export class VoidInvoiceDto {
   reason!: string;
 }
 
+export class ReversePaymentDto {
+  /** Why the payment entry is being reversed (kept on the record) */
+  @IsString()
+  @MaxLength(300)
+  reason!: string;
+}
+
 export class AddPaymentDto {
   @IsEnum(PaymentMode)
   mode!: PaymentMode;
@@ -203,7 +211,13 @@ export class AddPaymentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   notes?: string;
+
+  /** When the money was actually received (defaults to now) */
+  @IsOptional()
+  @IsDateString()
+  paidAt?: string;
 }
 
 export class ListInvoicesQueryDto {

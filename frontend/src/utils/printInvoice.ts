@@ -52,7 +52,7 @@ export async function openInvoicePrint(
   }
 }
 
-function withPrintChrome(html: string): string {
+export function withPrintChrome(html: string): string {
   const toolbar = `
 <style>
   @media print { .no-print { display: none !important; } }

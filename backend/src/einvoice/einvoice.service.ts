@@ -96,7 +96,7 @@ export class EinvoiceService {
       where: { id: invoiceId, tenantId },
       include: {
         lines: { orderBy: { lineNo: 'asc' } },
-        payments: true,
+        payments: { where: { reversedAt: null } },
       },
     });
     if (!invoice) return null;

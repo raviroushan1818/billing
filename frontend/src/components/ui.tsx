@@ -82,25 +82,41 @@ export function Button({
   );
 }
 
+function cellClass(c: { align?: 'left' | 'right'; nowrap?: boolean }) {
+  const cls = [c.align === 'right' ? 'num' : '', c.nowrap ? 'nowrap' : '']
+    .filter(Boolean)
+    .join(' ');
+  return cls || undefined;
+}
+
 export function DataTable({
   columns,
   rows,
   emptyText = 'No records found.',
+  stackOnMobile = false,
 }: {
-  columns: Array<{ key: string; label: string; align?: 'left' | 'right' }>;
+  columns: Array<{
+    key: string;
+    label: string;
+    align?: 'left' | 'right';
+    /** Keep cell content on one line (ids, dates, amounts, action rows). */
+    nowrap?: boolean;
+  }>;
   rows: Array<{ id: string; cells: Record<string, ReactNode> }>;
   emptyText?: string;
+  /** On phones, render each row as a labelled card instead of a wide table. */
+  stackOnMobile?: boolean;
 }) {
   if (!rows.length) {
     return <p className="empty-state">{emptyText}</p>;
   }
   return (
     <div className="table-wrap">
-      <table className="data-table">
+      <table className={`data-table${stackOnMobile ? ' stack-mobile' : ''}`}>
         <thead>
           <tr>
             {columns.map((c) => (
-              <th key={c.key} className={c.align === 'right' ? 'num' : undefined}>
+              <th key={c.key} className={cellClass(c)}>
                 {c.label}
               </th>
             ))}
@@ -110,8 +126,16 @@ export function DataTable({
           {rows.map((row) => (
             <tr key={row.id}>
               {columns.map((c) => (
-                <td key={c.key} className={c.align === 'right' ? 'num' : undefined}>
-                  {row.cells[c.key]}
+                <td
+                  key={c.key}
+                  className={cellClass(c)}
+                  data-label={c.label || undefined}
+                >
+                  {stackOnMobile ? (
+                    <div className="td-body">{row.cells[c.key]}</div>
+                  ) : (
+                    row.cells[c.key]
+                  )}
                 </td>
               ))}
             </tr>

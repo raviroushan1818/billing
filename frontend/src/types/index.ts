@@ -176,6 +176,8 @@ export type InvoiceLine = {
   lineTotal?: number | string;
 };
 
+export type PaymentStage = 'AT_BILLING' | 'DUE_COLLECTION';
+
 export type InvoicePayment = {
   id?: string;
   mode: PaymentMode;
@@ -183,6 +185,20 @@ export type InvoicePayment = {
   upiRefId?: string | null;
   cardLast4?: string | null;
   notes?: string | null;
+  /** When the money was received */
+  paidAt?: string;
+  /** When the entry was recorded in the system */
+  createdAt?: string;
+  receiptNo?: string | null;
+  stage?: PaymentStage;
+  balanceAfter?: number | string | null;
+  receivedById?: string | null;
+  receivedBy?: InvoiceActor | null;
+  /** Set when a wrong entry was reversed; reversed rows never count as paid */
+  reversedAt?: string | null;
+  reversedById?: string | null;
+  reversedBy?: InvoiceActor | null;
+  reversalReason?: string | null;
 };
 
 export type InvoiceActor = {
@@ -208,6 +224,9 @@ export type Invoice = {
   referredBy?: string | null;
   partyMeta?: Record<string, string> | null;
   referenceInvoiceId?: string | null;
+  sellerLegalName?: string | null;
+  sellerAddress?: string | null;
+  sellerGstin?: string | null;
   taxableAmount?: number | string;
   cgstAmount?: number | string;
   sgstAmount?: number | string;
@@ -219,6 +238,8 @@ export type Invoice = {
   balanceDue?: number | string;
   paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID';
   dueDate?: string | null;
+  /** When the balance due reached zero */
+  settledAt?: string | null;
   notes?: string | null;
   lines?: InvoiceLine[];
   payments?: InvoicePayment[];
@@ -270,6 +291,55 @@ export type DayBookEntry = {
   igstAmount: number | string;
   grandTotal: number | string;
   payments?: Array<{ mode: PaymentMode | string; amount: number | string }>;
+  id?: string;
+  partyPhone?: string | null;
+  partyGstin?: string | null;
+  supplyType?: string;
+  discountAmount?: number;
+  roundOff?: number;
+  amountPaid?: number;
+  balanceDue?: number;
+  paymentStatus?: string;
+  raisedBy?: string | null;
+};
+
+export type PaymentRegisterRow = {
+  id: string;
+  receiptNo: string | null;
+  paidAt: string;
+  recordedAt: string;
+  invoiceId: string;
+  billNo: string;
+  invoiceDate: string;
+  partyName: string;
+  partyPhone?: string | null;
+  billTotal: number;
+  stage: PaymentStage;
+  mode: PaymentMode;
+  upiRefId?: string | null;
+  cardLast4?: string | null;
+  amount: number;
+  balanceAfter: number | null;
+  receivedBy: string | null;
+  notes: string | null;
+  reversedAt: string | null;
+  reversedBy: string | null;
+  reversalReason: string | null;
+};
+
+export type HsnSummaryRow = {
+  hsnSac: string;
+  gstRate: number;
+  unit: string;
+  description: string;
+  qty: number;
+  taxable: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  cess: number;
+  total: number;
+  lineCount: number;
 };
 
 export type DayBookReport = {
@@ -487,3 +557,72 @@ export type EwayBill = {
 };
 
 
+
+export type DueCollectionRow = {
+  id: string;
+  receiptNo: string | null;
+  paidAt: string;
+  recordedAt: string;
+  invoiceId: string;
+  billNo: string;
+  invoiceDate: string;
+  partyName: string;
+  partyPhone?: string | null;
+  billTotal: number;
+  mode: PaymentMode;
+  reference: string | null;
+  amount: number;
+  balanceBefore: number | null;
+  balanceAfter: number | null;
+  settled: boolean;
+  daysAfterBill: number;
+  receivedBy: string | null;
+  notes: string | null;
+};
+
+export type SettledBillRow = {
+  id: string;
+  billNo: string;
+  invoiceDate: string;
+  partyName: string;
+  partyPhone?: string | null;
+  grandTotal: number;
+  paidAtBilling: number;
+  collectedLater: number;
+  installments: number;
+  settledAt: string;
+  daysToSettle: number;
+};
+
+export type DueSettlementsReport = {
+  from: string;
+  to: string;
+  summary: {
+    creditGiven: number;
+    recovered: number;
+    collectionCount: number;
+    settledCount: number;
+    recoveredByMode: Record<string, number>;
+  };
+  collections: DueCollectionRow[];
+  settled: SettledBillRow[];
+};
+
+export type ReceivableRow = {
+  id: string;
+  billNo: string;
+  partyName: string;
+  partyPhone?: string | null;
+  invoiceDate: string;
+  balanceDue: number;
+  amountPaid: number;
+  grandTotal: number;
+  dueDate: string;
+  daysPastDue: number;
+  bucket: string;
+  paymentStatus: string;
+  paymentCount: number;
+  lastPaymentAt: string | null;
+  lastPaymentAmount: number | null;
+  lastPaymentMode: PaymentMode | null;
+};

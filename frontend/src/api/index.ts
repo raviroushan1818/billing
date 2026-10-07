@@ -25,7 +25,11 @@ import type {
   InvoiceTheme,
   Item,
   Party,
+  DueSettlementsReport,
+  HsnSummaryRow,
+  PaymentRegisterRow,
   PaymentMode,
+  ReceivableRow,
   PaymentSettings,
   PlatformInquiry,
   PlatformSettings,
@@ -490,11 +494,19 @@ export const invoicesApi = {
       upiRefId?: string;
       cardLast4?: string;
       notes?: string;
+      /** ISO timestamp the money was received; defaults to now */
+      paidAt?: string;
     },
   ) {
     return api<Invoice>(`/invoices/${id}/payments`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  },
+  reversePayment(id: string, paymentId: string, reason: string) {
+    return api<Invoice>(`/invoices/${id}/payments/${paymentId}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
     });
   },
   finalize(id: string) {
@@ -705,24 +717,29 @@ export const reportsApi = {
   },
   receivables() {
     return api<{
-      rows: Array<{
-        id: string;
-        billNo: string;
-        partyName: string;
-        balanceDue: number;
-        amountPaid: number;
-        grandTotal: number;
-        dueDate: string;
-        daysPastDue: number;
-        bucket: string;
-        paymentStatus: string;
-      }>;
+      rows: ReceivableRow[];
       summary: {
         totalDue: number;
         count: number;
         byBucket: Record<string, number>;
       };
     }>('/reports/receivables');
+  },
+  paymentRegister(from: string, to: string) {
+    const qs = new URLSearchParams({ from, to });
+    return api<{ from: string; to: string; rows: PaymentRegisterRow[] }>(
+      `/reports/payment-register?${qs}`,
+    );
+  },
+  hsnSummary(from: string, to: string) {
+    const qs = new URLSearchParams({ from, to });
+    return api<{ from: string; to: string; rows: HsnSummaryRow[] }>(
+      `/reports/hsn-summary?${qs}`,
+    );
+  },
+  dueSettlements(from: string, to: string) {
+    const qs = new URLSearchParams({ from, to });
+    return api<DueSettlementsReport>(`/reports/due-settlements?${qs}`);
   },
   itc(from?: string, to?: string) {
     const qs = new URLSearchParams();

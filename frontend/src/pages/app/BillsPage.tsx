@@ -10,16 +10,15 @@ import {
   canVoidBills,
   roleLabel,
 } from '../../auth/roles';
-import type {
-  Invoice,
-  InvoiceStatus,
-  Party,
-  PaymentMode,
-  PrintFormat,
-} from '../../types';
-import { formatInr, todayIso, toNum } from '../../utils/format';
+import type { Invoice, InvoiceStatus, Party, PrintFormat } from '../../types';
+import { formatDate, formatInr, todayIso, toNum } from '../../utils/format';
+import {
+  PaymentHistoryDialog,
+  ReceivePaymentDialog,
+} from '../../components/payments';
 import { openInvoicePrint } from '../../utils/printInvoice';
 import { useDialog } from '../../components/Dialog';
+import { ActionMenu } from '../../components/ActionMenu';
 import {
   Alert,
   Button,
@@ -53,6 +52,8 @@ export function BillsPage() {
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [payingFor, setPayingFor] = useState<Invoice | null>(null);
+  const [historyFor, setHistoryFor] = useState<Invoice | null>(null);
 
   const role = user?.role ?? '';
   const allowCreate = canCreateBills(role);
@@ -140,88 +141,14 @@ export function BillsPage() {
     }
   };
 
-  const recordPayment = async (b: Invoice) => {
-    const due = toNum(b.balanceDue ?? b.grandTotal);
-    if (due <= 0.01) {
-      await dialog.alert({
-        title: 'Already paid',
-        message: `${b.billNo} has no balance due.`,
-        variant: 'info',
-      });
-      return;
-    }
-    const amountRaw = await dialog.prompt({
-      title: `Record payment · ${b.billNo}`,
-      message: `Balance due ${formatInr(due)}. Enter amount received now.`,
-      label: 'Amount (₹)',
-      defaultValue: String(due),
-      confirmLabel: 'Continue',
-      required: true,
-    });
-    if (amountRaw === null) return;
-    const amount = Number(amountRaw);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Enter a valid payment amount');
-      return;
-    }
-    if (amount > due + 0.01) {
-      setError(`Amount cannot exceed balance due (${formatInr(due)})`);
-      return;
-    }
-    const modeRaw = await dialog.prompt({
-      title: 'Payment mode',
-      message: 'Type CASH, UPI, or CARD',
-      label: 'Mode',
-      defaultValue: 'CASH',
-      confirmLabel: 'Continue',
-      required: true,
-    });
-    if (modeRaw === null) return;
-    const mode = modeRaw.trim().toUpperCase() as PaymentMode;
-    if (mode !== 'CASH' && mode !== 'UPI' && mode !== 'CARD') {
-      setError('Mode must be CASH, UPI, or CARD');
-      return;
-    }
-    let upiRefId: string | undefined;
-    let cardLast4: string | undefined;
-    if (mode === 'UPI') {
-      const ref = await dialog.prompt({
-        title: 'UPI reference',
-        label: 'UPI Ref ID',
-        confirmLabel: 'Save payment',
-        required: true,
-      });
-      if (ref === null) return;
-      upiRefId = ref.trim();
-    }
-    if (mode === 'CARD') {
-      const last4 = await dialog.prompt({
-        title: 'Card',
-        label: 'Last 4 digits',
-        confirmLabel: 'Save payment',
-        required: true,
-      });
-      if (last4 === null) return;
-      if (!/^\d{4}$/.test(last4.trim())) {
-        setError('Card last 4 must be 4 digits');
-        return;
-      }
-      cardLast4 = last4.trim();
-    }
-    try {
-      setError(null);
-      setSuccess(null);
-      await invoicesApi.addPayment(b.id, {
-        mode,
-        amount,
-        upiRefId,
-        cardLast4,
-      });
-      setSuccess(`Payment of ${formatInr(amount)} recorded on ${b.billNo}`);
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Payment failed');
-    }
+  const noteAllowed = (b: Invoice) =>
+    b.status === 'FINALIZED' &&
+    (allowCreate || allowVoid) &&
+    (!b.documentType || b.documentType === 'TAX_INVOICE');
+
+  const recordPayment = (b: Invoice) => {
+    setHistoryFor(null);
+    setPayingFor(b);
   };
 
   const printBill = async (id: string) => {
@@ -457,95 +384,111 @@ export function BillsPage() {
           <p className="muted">Loading…</p>
         ) : (
           <DataTable
+            stackOnMobile
             columns={[
-              { key: 'billNo', label: 'Bill No' },
-              { key: 'type', label: 'Type' },
-              { key: 'date', label: 'Date' },
+              { key: 'billNo', label: 'Bill No', nowrap: true },
               { key: 'party', label: 'Party' },
-              { key: 'raisedBy', label: 'Raised by' },
-              { key: 'finalizedBy', label: 'Finalized by' },
-              { key: 'voidedBy', label: 'Voided by' },
-              { key: 'total', label: 'Total', align: 'right' },
-              { key: 'paid', label: 'Paid', align: 'right' },
-              { key: 'due', label: 'Due', align: 'right' },
-              { key: 'payStatus', label: 'Payment' },
+              { key: 'staff', label: 'Raised by' },
+              { key: 'total', label: 'Total', align: 'right', nowrap: true },
+              { key: 'paid', label: 'Paid', align: 'right', nowrap: true },
+              { key: 'due', label: 'Due', align: 'right', nowrap: true },
               { key: 'status', label: 'Status' },
-              { key: 'actions', label: '' },
+              { key: 'actions', label: '', nowrap: true },
             ]}
             rows={bills.map((b) => ({
               id: b.id,
               cells: {
-                billNo: b.billNo,
-                type:
-                  b.documentType === 'CREDIT_NOTE'
-                    ? 'CN'
-                    : b.documentType === 'DEBIT_NOTE'
-                      ? 'DN'
-                      : 'INV',
-                date: b.invoiceDate.slice(0, 10),
+                billNo: (
+                  <>
+                    {b.billNo}
+                    <span className="cell-sub">{formatDate(b.invoiceDate)}</span>
+                    {b.documentType === 'CREDIT_NOTE' ||
+                    b.documentType === 'DEBIT_NOTE' ? (
+                      <span className="cell-sub">
+                        {b.documentType === 'CREDIT_NOTE' ? 'Credit note' : 'Debit note'}
+                      </span>
+                    ) : null}
+                  </>
+                ),
                 party: b.partyName,
-                raisedBy: (
+                staff: (
                   <div className="actor-cell">
-                    <span>{actorDisplayName(b.createdBy)}</span>
-                    {actorRoleLabel(b.createdBy) ? (
+                    <span>
+                      {actorDisplayName(b.createdBy)}{' '}
+                      {actorRoleLabel(b.createdBy) ? (
+                        <span
+                          className={`role-badge role-${(
+                            b.createdBy?.role || 'billing_operator'
+                          ).toLowerCase()}`}
+                        >
+                          {actorRoleLabel(b.createdBy)}
+                        </span>
+                      ) : null}
+                    </span>
+                    {b.finalizedBy && b.finalizedBy.id !== b.createdBy?.id ? (
+                      <span className="cell-sub">
+                        Finalized by {actorDisplayName(b.finalizedBy)}
+                      </span>
+                    ) : null}
+                    {b.status === 'VOID' ? (
                       <span
-                        className={`role-badge role-${(
-                          b.createdBy?.role || 'billing_operator'
-                        ).toLowerCase()}`}
+                        className="cell-sub pay-amt-due"
+                        title={b.voidReason ?? undefined}
                       >
-                        {actorRoleLabel(b.createdBy)}
+                        Voided by {actorDisplayName(b.voidedBy)}
+                        {b.voidedBy?.role ? ` (${roleLabel(b.voidedBy.role)})` : ''}
+                        {b.voidReason
+                          ? ` · ${
+                              b.voidReason.length > 24
+                                ? `${b.voidReason.slice(0, 24)}…`
+                                : b.voidReason
+                            }`
+                          : ''}
                       </span>
                     ) : null}
                   </div>
                 ),
-                finalizedBy:
-                  b.status === 'FINALIZED' || b.finalizedBy ? (
-                    <div className="actor-cell">
-                      <span>{actorDisplayName(b.finalizedBy)}</span>
-                      {actorRoleLabel(b.finalizedBy) ? (
-                        <span
-                          className={`role-badge role-${(
-                            b.finalizedBy?.role || 'billing_operator'
-                          ).toLowerCase()}`}
-                        >
-                          {actorRoleLabel(b.finalizedBy)}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    '—'
-                  ),
-                voidedBy:
-                  b.status === 'VOID' ? (
-                    <div className="actor-cell">
-                      <span>{actorDisplayName(b.voidedBy)}</span>
-                      {b.voidedBy?.role ? (
-                        <span
-                          className={`role-badge role-${b.voidedBy.role.toLowerCase()}`}
-                        >
-                          {roleLabel(b.voidedBy.role)}
-                        </span>
-                      ) : null}
-                      {b.voidReason ? (
-                        <span className="muted" title={b.voidReason}>
-                          {b.voidReason.length > 24
-                            ? `${b.voidReason.slice(0, 24)}…`
-                            : b.voidReason}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : (
-                    '—'
-                  ),
                 total: formatInr(toNum(b.grandTotal)),
-                paid: formatInr(toNum(b.amountPaid)),
-                due: formatInr(toNum(b.balanceDue)),
-                payStatus: b.paymentStatus ? (
-                  <StatusBadge status={b.paymentStatus} />
-                ) : (
-                  '—'
+                paid: (
+                  <>
+                    {formatInr(toNum(b.amountPaid))}
+                    {(b.payments?.length ?? 0) > 1 ? (
+                      <span className="cell-sub">
+                        {b.payments!.length} payments
+                      </span>
+                    ) : null}
+                  </>
                 ),
-                status: <StatusBadge status={b.status} />,
+                due:
+                  b.paymentStatus === 'PAID' && b.settledAt ? (
+                    <>
+                      {formatInr(0)}
+                      {b.payments?.some((p) => p.stage === 'DUE_COLLECTION') ? (
+                        <span className="cell-sub pay-amt-in">
+                          Settled {formatDate(b.settledAt)}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      {formatInr(toNum(b.balanceDue))}
+                      {b.status === 'FINALIZED' &&
+                      toNum(b.balanceDue) > 0.01 &&
+                      b.dueDate ? (
+                        <span className="cell-sub">
+                          due {formatDate(b.dueDate)}
+                        </span>
+                      ) : null}
+                    </>
+                  ),
+                status: (
+                  <div className="status-stack">
+                    <StatusBadge status={b.status} />
+                    {b.status === 'FINALIZED' && b.paymentStatus ? (
+                      <StatusBadge status={b.paymentStatus} />
+                    ) : null}
+                  </div>
+                ),
                 actions: (
                   <div className="inline-actions">
                     <Button
@@ -554,79 +497,62 @@ export function BillsPage() {
                     >
                       Open
                     </Button>
+                    {b.status === 'FINALIZED' &&
+                    allowPay &&
+                    toNum(b.balanceDue) > 0.01 ? (
+                      <Button onClick={() => recordPayment(b)}>
+                        Receive
+                      </Button>
+                    ) : null}
                     <Button
                       variant="secondary"
                       onClick={() => void printBill(b.id)}
                     >
                       Print
                     </Button>
-                    {b.status === 'FINALIZED' &&
-                    allowPay &&
-                    toNum(b.balanceDue) > 0.01 ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => void recordPayment(b)}
-                      >
-                        Record payment
-                      </Button>
-                    ) : null}
-                    {b.status === 'FINALIZED' ? (
-                      <>
-                        {allowCreate ? (
-                          <>
-                            <Button
-                              variant="secondary"
-                              onClick={() => void shareEmail(b.id, b.billNo)}
-                            >
-                              Email
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              onClick={() => void shareWhatsapp(b)}
-                            >
-                              WhatsApp
-                            </Button>
-                          </>
-                        ) : null}
-                        {(allowCreate || allowVoid) &&
-                        (!b.documentType || b.documentType === 'TAX_INVOICE') ? (
-                          <>
-                            <Button
-                              variant="secondary"
-                              onClick={() =>
-                                navigate(`/app/notes/document?type=credit&ref=${b.id}`)
-                              }
-                            >
-                              Credit note
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              onClick={() =>
-                                navigate(`/app/notes/document?type=debit&ref=${b.id}`)
-                              }
-                            >
-                              Debit note
-                            </Button>
-                          </>
-                        ) : null}
-                        {allowVoid ? (
-                          <Button
-                            variant="danger"
-                            onClick={() => void voidBill(b.id, b.billNo)}
-                          >
-                            Void
-                          </Button>
-                        ) : null}
-                      </>
-                    ) : null}
-                    {allowBin ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => void moveToBin(b)}
-                      >
-                        Bin
-                      </Button>
-                    ) : null}
+                    <ActionMenu
+                      items={[
+                        {
+                          label: 'Payment history',
+                          hidden: b.status === 'DRAFT',
+                          onSelect: () => setHistoryFor(b),
+                        },
+                        {
+                          label: 'Email invoice',
+                          hidden: !(b.status === 'FINALIZED' && allowCreate),
+                          onSelect: () => void shareEmail(b.id, b.billNo),
+                        },
+                        {
+                          label: 'Send on WhatsApp',
+                          hidden: !(b.status === 'FINALIZED' && allowCreate),
+                          onSelect: () => void shareWhatsapp(b),
+                        },
+                        {
+                          label: 'Create credit note',
+                          hidden: !noteAllowed(b),
+                          onSelect: () =>
+                            navigate(`/app/notes/document?type=credit&ref=${b.id}`),
+                        },
+                        {
+                          label: 'Create debit note',
+                          hidden: !noteAllowed(b),
+                          onSelect: () =>
+                            navigate(`/app/notes/document?type=debit&ref=${b.id}`),
+                        },
+                        {
+                          label: 'Void bill',
+                          danger: true,
+                          hidden: !(b.status === 'FINALIZED' && allowVoid),
+                          onSelect: () => void voidBill(b.id, b.billNo),
+                        },
+                        {
+                          label: 'Move to recycle bin',
+                          danger: true,
+                          hidden: !allowBin,
+                          onSelect: () => void moveToBin(b),
+                        },
+                      ]}
+                    />
                   </div>
                 ),
               },
@@ -634,6 +560,35 @@ export function BillsPage() {
           />
         )}
       </div>
+      {payingFor ? (
+        <ReceivePaymentDialog
+          invoice={payingFor}
+          onClose={() => setPayingFor(null)}
+          onSaved={(updated, receipt) => {
+            setPayingFor(null);
+            setError(null);
+            setSuccess(
+              receipt.settled
+                ? `${updated.billNo} settled in full — received ${formatInr(receipt.amount)}`
+                : `Received ${formatInr(receipt.amount)} on ${updated.billNo} · balance due ${formatInr(updated.balanceDue)}`,
+            );
+            load();
+          }}
+        />
+      ) : null}
+      {historyFor ? (
+        <PaymentHistoryDialog
+          key={`${historyFor.id}-${historyFor.amountPaid}`}
+          invoice={historyFor}
+          canReceive={allowPay}
+          onClose={() => setHistoryFor(null)}
+          onChanged={(updated) => {
+            setHistoryFor(updated);
+            load();
+          }}
+          onReceive={(latest) => recordPayment(latest)}
+        />
+      ) : null}
     </>
   );
 }

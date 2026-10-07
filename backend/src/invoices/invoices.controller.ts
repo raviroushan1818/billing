@@ -21,6 +21,7 @@ import {
   CreateInvoiceDto,
   CreateNoteDto,
   AddPaymentDto,
+  ReversePaymentDto,
   ListInvoicesQueryDto,
   ShareEmailDto,
   ShareWhatsappDto,
@@ -59,6 +60,18 @@ export class InvoicesController {
     @Body() dto: AddPaymentDto,
   ) {
     return this.invoices.addPayment(user, id, dto);
+  }
+
+  /** Mark a wrongly entered payment as reversed; the entry stays on record. */
+  @Post(':id/payments/:paymentId/reverse')
+  @Roles(UserRole.CLIENT_ADMIN, UserRole.ACCOUNTANT)
+  reversePayment(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('paymentId') paymentId: string,
+    @Body() dto: ReversePaymentDto,
+  ) {
+    return this.invoices.reversePayment(user, id, paymentId, dto.reason);
   }
 
   @Get()
