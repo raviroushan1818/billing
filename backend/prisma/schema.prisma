@@ -101,6 +101,7 @@ enum InvoiceTheme {
   MODERN
   COMPACT
   BOLD
+  GST
 }
 
 enum BrandAlign {
@@ -112,6 +113,12 @@ enum BrandAlign {
 enum HeaderMode {
   COMPOSED
   LETTERHEAD
+}
+
+enum PrintFormat {
+  A4
+  THERMAL_80
+  THERMAL_58
 }
 
 /// Platform tenant (client). SuperAdmin lives under reserved clientId PLATFORM.
@@ -150,6 +157,15 @@ model Tenant {
   @@index([profileType])
 }
 
+/// Singleton platform-wide settings (row id = "default").
+model PlatformSettings {
+  id                   String   @id @default("default")
+  clientIdPrefix       String   @default("CLI")
+  clientIdSeparator    String   @default("-")
+  clientIdSuffixLength Int      @default(8)
+  updatedAt            DateTime @updatedAt
+}
+
 model TenantProfileConfig {
   id                String          @id @default(uuid())
   tenantId          String          @unique
@@ -176,9 +192,11 @@ model BrandTemplate {
   showGstin      Boolean      @default(true)
   logoWidthPx    Int          @default(72)
   bannerHeightPx Int          @default(100)
+  fontSizePx     Int          @default(12)
   invoiceTheme   InvoiceTheme @default(CLASSIC)
   logoAlign      BrandAlign   @default(LEFT)
   headerMode     HeaderMode   @default(COMPOSED)
+  printFormat    PrintFormat  @default(A4)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
@@ -197,6 +215,12 @@ model TenantIntegrationSettings {
   waPhoneNumberId    String?
   waAccessTokenEnc   String?
   waApiVersion       String   @default("v19.0")
+  /// IndHMS bridge: sha256 hex of API key
+  hmsApiKeyHash      String?
+  hmsApiKeyPrefix    String?
+  hmsWebhookSecret   String?
+  hmsBaseUrl         String?
+  hmsBridgeUserId    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -238,11 +262,16 @@ model User {
   lastLoginAt  DateTime?
   failedLogins Int       @default(0)
   lockedUntil  DateTime?
+  /// Per-user print preference (overrides tenant BrandTemplate.printFormat when set)
+  preferredPrintFormat PrintFormat?
+  /// Per-user invoice theme (overrides tenant BrandTemplate.invoiceTheme when set)
+  preferredInvoiceTheme InvoiceTheme?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   auditLogs    AuditLog[]
   invoicesCreated Invoice[] @relation("InvoiceCreatedBy")
   invoicesVoided  Invoice[] @relation("InvoiceVoidedBy")
+  invoicesFinalized Invoice[] @relation("InvoiceFinalizedBy")
   workspaceNotes  WorkspaceNote[] @relation("NoteCreatedBy")
   subscriptionsAssigned TenantSubscription[] @relation("SubscriptionAssignedBy")
 
@@ -414,6 +443,10 @@ model Invoice {
   paymentStatus   PaymentStatus  @default(UNPAID)
   dueDate         DateTime?
   notes           String?
+  /// Snapshot of profile fields (age, gender, careOf, class)
+  partyMeta       Json           @default("{}")
+  /// External system reference (e.g. IndHMS encounter_id)
+  externalRef     String?
   pdfGcsKey       String?
   irn             String?
   ackNo           String?
@@ -423,6 +456,9 @@ model Invoice {
   einvoicePayload Json?
   createdById     String?
   createdBy       User?          @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  finalizedById   String?
+  finalizedBy     User?          @relation("InvoiceFinalizedBy", fields: [finalizedById], references: [id], onDelete: SetNull)
+  finalizedAt     DateTime?
   voidedById      String?
   voidedBy        User?          @relation("InvoiceVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
   voidedAt        DateTime?
@@ -444,6 +480,8 @@ model Invoice {
   @@index([tenantId, deletedAt])
   @@index([tenantId, paymentStatus])
   @@index([tenantId, dueDate])
+  @@index([tenantId, externalRef])
+  @@unique([tenantId, externalRef])
 }
 
 model InvoiceLine {

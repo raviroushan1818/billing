@@ -1,8 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { roleHome } from './roles';
 import { Alert, Button, Field } from '../components/ui';
+import { BrandLogo } from '../components/BrandLogo';
+import { BRAND } from '../brand';
 
 export function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -12,6 +14,10 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    document.title = `Sign in · ${BRAND.productName} | ${BRAND.companyShort}`;
+  }, []);
 
   if (!loading && user) {
     return <Navigate to={roleHome(user.role)} replace />;
@@ -35,14 +41,15 @@ export function LoginPage() {
     <div className="screen-center">
       <div className="login-panel">
         <div className="login-brand">
-          <img
-            src="/logo.jpeg"
-            alt="Indian Software Services"
-            className="login-logo"
-          />
-          <p>Multi-tenant GST billing for Indian enterprises</p>
+          <BrandLogo className="login-logo" width={64} height={64} />
+          <h1 className="login-product-name">{BRAND.productName}</h1>
+          <p>{BRAND.productTagline} — multi-tenant GST billing for Indian enterprises</p>
           <p className="muted" style={{ marginTop: '0.5rem' }}>
             <a href="/">← Back to overview</a>
+            {' · '}
+            <a href="/contact">Contact</a>
+            {' · '}
+            <a href="/privacy">Privacy</a>
           </p>
         </div>
         {error ? <Alert>{error}</Alert> : null}

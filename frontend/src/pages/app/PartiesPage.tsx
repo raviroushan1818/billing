@@ -3,6 +3,7 @@ import { partiesApi } from '../../api';
 import { useTenantProfile } from '../../hooks/useTenantProfile';
 import type { Party } from '../../types';
 import { CsvImportControls } from '../../components/CsvImportControls';
+import { compactPartyMeta } from '../../utils/partyMeta';
 import {
   Alert,
   Button,
@@ -14,8 +15,14 @@ import {
 import { UserSquare2 } from 'lucide-react';
 
 export function PartiesPage() {
-  const { partyLabel, partyIdLabel, showRefBy, showGstinProminent, showClassField } =
-    useTenantProfile();
+  const {
+    partyLabel,
+    partyIdLabel,
+    showRefBy,
+    showGstinProminent,
+    showClassField,
+    showPatientDemographics,
+  } = useTenantProfile();
   const [parties, setParties] = useState<Party[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Party | null>(null);
@@ -28,6 +35,10 @@ export function PartiesPage() {
   const [gstin, setGstin] = useState('');
   const [refBy, setRefBy] = useState('');
   const [className, setClassName] = useState('');
+  const [age, setAge] = useState('');
+  const [ageUnit, setAgeUnit] = useState<'Y' | 'M'>('Y');
+  const [gender, setGender] = useState('');
+  const [careOf, setCareOf] = useState('');
 
   const [q, setQ] = useState('');
   const [gstFilter, setGstFilter] = useState<'' | 'yes' | 'no'>('');
@@ -79,6 +90,10 @@ export function PartiesPage() {
     setGstin('');
     setRefBy('');
     setClassName('');
+    setAge('');
+    setAgeUnit('Y');
+    setGender('');
+    setCareOf('');
   };
 
   const startEdit = (p: Party) => {
@@ -90,8 +105,12 @@ export function PartiesPage() {
     setAddress(p.address ?? '');
     setGstin(p.gstin ?? '');
     setRefBy(p.referredBy ?? '');
-    const cf = p.customFields as Record<string, string> | undefined;
-    setClassName(cf?.class ?? '');
+    const cf = (p.customFields ?? {}) as Record<string, unknown>;
+    setClassName(typeof cf.class === 'string' ? cf.class : '');
+    setAge(typeof cf.age === 'string' ? cf.age : cf.age != null ? String(cf.age) : '');
+    setAgeUnit(cf.ageUnit === 'M' ? 'M' : 'Y');
+    setGender(typeof cf.gender === 'string' ? cf.gender : '');
+    setCareOf(typeof cf.careOf === 'string' ? cf.careOf : '');
   };
 
   const { busy, error, success, handle } = useFormSubmit(async () => {
@@ -103,7 +122,16 @@ export function PartiesPage() {
       address: address || undefined,
       gstin: gstin || undefined,
       referredBy: refBy || undefined,
-      customFields: showClassField && className ? { class: className } : {},
+      customFields: compactPartyMeta({
+        ...(typeof editing?.customFields === 'object' && editing.customFields
+          ? (editing.customFields as Record<string, unknown>)
+          : {}),
+        class: showClassField ? className : undefined,
+        age: showPatientDemographics ? age : undefined,
+        ageUnit: showPatientDemographics ? ageUnit : undefined,
+        gender: showPatientDemographics ? gender : undefined,
+        careOf: showPatientDemographics ? careOf : undefined,
+      }),
     };
     if (editing) {
       await partiesApi.update(editing.id, payload);
@@ -183,8 +211,59 @@ export function PartiesPage() {
                   id="p-ref"
                   value={refBy}
                   onChange={(e) => setRefBy(e.target.value)}
+                  placeholder="Consultant / referring doctor"
                 />
               </Field>
+            ) : null}
+            {showPatientDemographics ? (
+              <>
+                <Field label="Age" htmlFor="p-age">
+                  <div className="age-field">
+                    <input
+                      id="p-age"
+                      type="number"
+                      min={0}
+                      max={ageUnit === 'M' ? 36 : 120}
+                      step={1}
+                      inputMode="numeric"
+                      value={age}
+                      onChange={(e) =>
+                        setAge(e.target.value.replace(/[^\d]/g, '').slice(0, 3))
+                      }
+                    />
+                    <select
+                      aria-label="Age unit"
+                      value={ageUnit}
+                      onChange={(e) =>
+                        setAgeUnit(e.target.value === 'M' ? 'M' : 'Y')
+                      }
+                    >
+                      <option value="Y">Years</option>
+                      <option value="M">Months</option>
+                    </select>
+                  </div>
+                </Field>
+                <Field label="Gender" htmlFor="p-gender">
+                  <select
+                    id="p-gender"
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                  >
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </Field>
+                <Field label="Care of (C/O)" htmlFor="p-careof">
+                  <input
+                    id="p-careof"
+                    value={careOf}
+                    onChange={(e) => setCareOf(e.target.value)}
+                    placeholder="Guardian / attendant"
+                  />
+                </Field>
+              </>
             ) : null}
             {showGstinProminent ? (
               <Field label="GSTIN" htmlFor="p-gst">
@@ -279,23 +358,39 @@ export function PartiesPage() {
               { key: 'externalId', label: partyIdLabel },
               { key: 'name', label: partyLabel },
               { key: 'phone', label: 'Phone' },
+              ...(showPatientDemographics
+                ? [
+                    { key: 'age', label: 'Age' },
+                    { key: 'gender', label: 'Gender' },
+                    { key: 'careOf', label: 'C/O' },
+                  ]
+                : []),
               { key: 'gstin', label: 'GSTIN' },
               { key: 'actions', label: '' },
             ]}
-            rows={filtered.map((p) => ({
+            rows={filtered.map((p) => {
+              const cf = (p.customFields ?? {}) as Record<string, unknown>;
+              const ageVal = cf.age
+                ? `${cf.age}${cf.ageUnit === 'M' ? 'M' : 'Y'}`
+                : '—';
+              return {
               id: p.id,
               cells: {
                 externalId: p.externalId ?? '—',
                 name: p.name,
                 phone: p.phone ?? '—',
                 gstin: p.gstin ?? '—',
+                age: ageVal,
+                gender: typeof cf.gender === 'string' ? cf.gender : '—',
+                careOf: typeof cf.careOf === 'string' ? cf.careOf : '—',
                 actions: (
                   <Button variant="secondary" onClick={() => startEdit(p)}>
                     Edit
                   </Button>
                 ),
               },
-            }))}
+            };
+            })}
             emptyText="No parties match these filters."
           />
         )}

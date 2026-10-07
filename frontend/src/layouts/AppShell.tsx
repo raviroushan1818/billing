@@ -32,6 +32,7 @@ import {
 } from '../auth/roles';
 import { useTenantProfile } from '../hooks/useTenantProfile';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { BrandLogo } from '../components/BrandLogo';
 
 export function AppShell() {
   const { user, logout } = useAuth();
@@ -45,13 +46,11 @@ export function AppShell() {
     <div className="shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img
-            src="/logo.jpeg"
-            alt="Indian Software Services"
-            className="sidebar-logo"
-          />
-          <strong>{tenant?.name ?? 'Billing'}</strong>
-          <span>{tenant?.clientId ?? user?.tenant?.clientId}</span>
+          <BrandLogo className="sidebar-logo" decorative />
+          <div className="sidebar-brand-copy">
+            <strong>{tenant?.name ?? 'IndBill'}</strong>
+            <span>{tenant?.clientId ?? user?.tenant?.clientId}</span>
+          </div>
         </div>
         <nav className="sidebar-nav">
           <div className="nav-section-label">Overview</div>
@@ -268,6 +267,14 @@ export function AppShell() {
           </div>
           <div className="muted">
             {user?.role ? roleLabel(user.role) : ''}
+          </div>
+          <div className="sidebar-footer-links">
+            <a href="/contact" target="_blank" rel="noreferrer">
+              Contact
+            </a>
+            <a href="/privacy" target="_blank" rel="noreferrer">
+              Privacy
+            </a>
           </div>
           <button type="button" className="btn btn-ghost" onClick={logout}>
             <LogOut size={14} /> Sign out

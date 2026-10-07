@@ -8,6 +8,7 @@ import {
   Repeat,
 } from 'lucide-react';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { BrandLogo } from '../components/BrandLogo';
 import { useAuth } from '../auth/AuthContext';
 
 export function PlatformShell() {
@@ -17,13 +18,11 @@ export function PlatformShell() {
     <div className="shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img
-            src="/logo.jpeg"
-            alt="Indian Software Services"
-            className="sidebar-logo"
-          />
-          <strong>Platform</strong>
-          <span>Platform Admin</span>
+          <BrandLogo className="sidebar-logo" decorative />
+          <div className="sidebar-brand-copy">
+            <strong>IndBill</strong>
+            <span>Super Admin Console</span>
+          </div>
         </div>
         <nav className="sidebar-nav">
           <NavLink
@@ -74,6 +73,14 @@ export function PlatformShell() {
         </nav>
         <div className="sidebar-footer">
           <div>{user?.email}</div>
+          <div className="sidebar-footer-links">
+            <a href="/contact" target="_blank" rel="noreferrer">
+              Contact
+            </a>
+            <a href="/privacy" target="_blank" rel="noreferrer">
+              Privacy
+            </a>
+          </div>
           <button type="button" className="btn btn-ghost" onClick={logout}>
             <LogOut size={14} /> Sign out
           </button>

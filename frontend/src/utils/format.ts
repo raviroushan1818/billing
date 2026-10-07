@@ -48,13 +48,33 @@ export function formatPayments(
     .join(', ');
 }
 
+/** Line discount mode: flat INR amount or percent of (qty × rate). */
+export type DiscountType = 'INR' | 'PCT';
+
+/** Convert UI discount value to absolute ₹ before tax. */
+export function discountAmount(
+  qty: number,
+  rate: number,
+  discount: number,
+  discountType: DiscountType = 'INR',
+): number {
+  const lineValue = Math.max(0, qty * rate);
+  if (discountType === 'PCT') {
+    const pct = Math.min(100, Math.max(0, discount));
+    return round2((lineValue * pct) / 100);
+  }
+  return round2(Math.min(lineValue, Math.max(0, discount)));
+}
+
 export function lineTotal(
   qty: number,
   rate: number,
   discount: number,
   gstRate: number,
+  discountType: DiscountType = 'INR',
 ): number {
-  const taxable = Math.max(0, qty * rate - discount);
+  const disc = discountAmount(qty, rate, discount, discountType);
+  const taxable = Math.max(0, qty * rate - disc);
   const gst = (taxable * gstRate) / 100;
   return round2(taxable + gst);
 }
@@ -66,11 +86,20 @@ export function calcBillTotals(
     rate: number;
     discount: number;
     gstRate: number;
+    discountType?: DiscountType;
   }>,
 ): { subtotal: number; grandTotal: number; roundOff: number } {
   const subtotal = round2(
     lines.reduce(
-      (sum, l) => sum + lineTotal(l.qty, l.rate, l.discount, l.gstRate),
+      (sum, l) =>
+        sum +
+        lineTotal(
+          l.qty,
+          l.rate,
+          l.discount,
+          l.gstRate,
+          l.discountType ?? 'INR',
+        ),
       0,
     ),
   );
@@ -85,7 +114,31 @@ export function calcGrandTotal(
     rate: number;
     discount: number;
     gstRate: number;
+    discountType?: DiscountType;
   }>,
 ): number {
   return calcBillTotals(lines).grandTotal;
+}
+
+/** Taxable (excl. GST) rate from a GST-inclusive / total amount. */
+export function exclusiveFromInclusive(
+  inclusive: number,
+  gstPct: number,
+): number {
+  const amount = Math.max(0, inclusive);
+  const pct = Math.max(0, gstPct);
+  if (pct <= 0) return round2(amount);
+  return round2(amount / (1 + pct / 100));
+}
+
+/** GST-inclusive total from a taxable (excl. GST) rate. */
+export function inclusiveFromExclusive(
+  exclusive: number,
+  gstPct: number,
+): number {
+  return round2(Math.max(0, exclusive) * (1 + Math.max(0, gstPct) / 100));
+}
+
+export function gstComponent(exclusive: number, gstPct: number): number {
+  return round2(Math.max(0, exclusive) * (Math.max(0, gstPct) / 100));
 }

@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import {
   DocumentType,
@@ -31,6 +33,7 @@ import {
   paymentStatusFromAmounts,
   paymentsWithinTotal,
 } from '../common/gst.util';
+import { compactPartyMeta } from '../common/party-meta.util';
 import {
   AddPaymentDto,
   CreateInvoiceDto,
@@ -41,6 +44,7 @@ import {
   UpdateDraftInvoiceDto,
 } from './dto/invoice.dto';
 import { InvoicePrintData } from '../einvoice/einvoice.provider';
+import { HmsService } from '../hms/hms.service';
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
@@ -67,6 +71,7 @@ const INVOICE_INCLUDE = {
   },
   payments: true,
   createdBy: { select: ACTOR_SELECT },
+  finalizedBy: { select: ACTOR_SELECT },
   voidedBy: { select: ACTOR_SELECT },
 };
 
@@ -84,6 +89,8 @@ export class InvoicesService {
     private readonly integrations: IntegrationsService,
     private readonly billing: BillingService,
     private readonly inventory: InventoryService,
+    @Inject(forwardRef(() => HmsService))
+    private readonly hms: HmsService,
   ) {}
 
   async create(
@@ -280,7 +287,11 @@ export class InvoicesService {
           paymentStatus,
           dueDate,
           notes: dto.notes,
+          partyMeta: compactPartyMeta(dto.partyMeta),
           createdById: actor.userId,
+          ...(status === InvoiceStatus.FINALIZED
+            ? { finalizedById: actor.userId, finalizedAt: new Date() }
+            : {}),
           einvoiceStatus: EinvoiceStatus.NOT_APPLICABLE,
           lines: {
             create: computedLines.map((l) => ({
@@ -322,6 +333,12 @@ export class InvoicesService {
 
       return created;
     });
+
+    await this.persistPartyDemographics(
+      actor.tenantId,
+      dto.partyId,
+      dto.partyMeta,
+    );
 
     await this.audit.log({
       tenantId: actor.tenantId,
@@ -518,6 +535,11 @@ export class InvoicesService {
           paymentStatus,
           dueDate,
           notes: dto.notes,
+          partyMeta: compactPartyMeta(dto.partyMeta),
+          ...(nextStatus === InvoiceStatus.FINALIZED &&
+          existing.status !== InvoiceStatus.FINALIZED
+            ? { finalizedById: actor.userId, finalizedAt: new Date() }
+            : {}),
           lines: {
             create: computedLines.map((l) => ({
               tenantId: actor.tenantId,
@@ -552,6 +574,12 @@ export class InvoicesService {
         },
       });
     });
+
+    await this.persistPartyDemographics(
+      actor.tenantId,
+      dto.partyId,
+      dto.partyMeta,
+    );
 
     await this.audit.log({
       tenantId: actor.tenantId,
@@ -631,6 +659,7 @@ export class InvoicesService {
       entityId: invoiceId,
       meta: { amount: dto.amount, mode: dto.mode },
     });
+    void this.hms.notifyHmsPayment(invoiceId, actor.tenantId);
     return this.get(actor.tenantId, invoiceId);
   }
 
@@ -751,7 +780,11 @@ export class InvoicesService {
 
     await this.prisma.invoice.update({
       where: { id },
-      data: { status: InvoiceStatus.FINALIZED },
+      data: {
+        status: InvoiceStatus.FINALIZED,
+        finalizedById: actor.userId,
+        finalizedAt: new Date(),
+      },
     });
 
     if (invoice.documentType === DocumentType.TAX_INVOICE) {
@@ -894,21 +927,44 @@ export class InvoicesService {
     return { ok: true, count: result.count };
   }
 
-  async print(tenantId: string, id: string) {
+  async print(actor: AuthUser, id: string, format?: string) {
+    const tenantId = actor.tenantId;
     const printData = await this.loadPrintData(tenantId, id);
-    const html = await this.pdf.buildInvoiceHtml(printData);
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      select: {
+        preferredPrintFormat: true,
+        preferredInvoiceTheme: true,
+      },
+    });
+
+    const brandFormat = (
+      printData.brand as { printFormat?: string }
+    ).printFormat;
+    const printFormat = normalizePrintFormat(
+      format || dbUser?.preferredPrintFormat || brandFormat,
+    );
+
+    if (dbUser?.preferredInvoiceTheme) {
+      (printData.brand as { invoiceTheme?: string }).invoiceTheme =
+        dbUser.preferredInvoiceTheme;
+    }
+
+    const html = await this.pdf.buildInvoiceHtml(printData, printFormat);
 
     try {
       const result = await this.pdf.generateInvoicePdf(
         printData,
         tenantId,
         html,
+        printFormat,
       );
       const publicPath =
         result.publicPath ?? this.storage.getPublicPath(result.gcsKey);
 
       return {
         html,
+        printFormat,
         gcsKey: result.gcsKey,
         publicPath: publicPath ?? undefined,
         signedUrl: result.signedUrl,
@@ -920,7 +976,7 @@ export class InvoicesService {
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      return { html };
+      return { html, printFormat };
     }
   }
 
@@ -1046,4 +1102,36 @@ export class InvoicesService {
       gst,
     };
   }
+
+  private async persistPartyDemographics(
+    tenantId: string,
+    partyId: string | undefined,
+    meta: Record<string, unknown> | undefined,
+  ) {
+    const compact = compactPartyMeta(meta);
+    if (!partyId || !Object.keys(compact).length) return;
+    const party = await this.prisma.party.findFirst({
+      where: { id: partyId, tenantId },
+    });
+    if (!party) return;
+    const existing =
+      party.customFields && typeof party.customFields === 'object'
+        ? (party.customFields as Record<string, unknown>)
+        : {};
+    await this.prisma.party.update({
+      where: { id: partyId },
+      data: {
+        customFields: { ...existing, ...compact } as Prisma.InputJsonValue,
+      },
+    });
+  }
+}
+
+function normalizePrintFormat(
+  raw?: string | null,
+): 'A4' | 'THERMAL_80' | 'THERMAL_58' {
+  const v = (raw ?? 'A4').toString().toUpperCase();
+  if (v === 'THERMAL_80' || v === '80' || v === 'THERMAL80') return 'THERMAL_80';
+  if (v === 'THERMAL_58' || v === '58' || v === 'THERMAL58') return 'THERMAL_58';
+  return 'A4';
 }

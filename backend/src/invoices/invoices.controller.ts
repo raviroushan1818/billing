@@ -162,8 +162,12 @@ export class InvoicesController {
     UserRole.ACCOUNTANT,
     UserRole.VIEWER,
   )
-  print(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.invoices.print(user.tenantId, id);
+  print(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Query('format') format?: string,
+  ) {
+    return this.invoices.print(user, id, format);
   }
 
   @Post(':id/share/email')

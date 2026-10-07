@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { reportsApi } from '../../api';
-import type { CollectionsReport, DayBookReport } from '../../types';
+import { invoicesApi, reportsApi } from '../../api';
+import type { CollectionsReport, DayBookReport, PrintFormat } from '../../types';
 import {
   formatInr,
   formatPayments,
@@ -9,6 +9,8 @@ import {
   todayIso,
   toNum,
 } from '../../utils/format';
+import { openInvoicePrint } from '../../utils/printInvoice';
+import { useDialog } from '../../components/Dialog';
 import {
   Alert,
   Button,
@@ -26,6 +28,7 @@ function emptyCollections(): CollectionsReport {
 
 export function ReportsPage() {
   const { user } = useAuth();
+  const dialog = useDialog();
   const canExportGstr1 =
     user?.role === 'CLIENT_ADMIN' || user?.role === 'ACCOUNTANT';
 
@@ -91,6 +94,30 @@ export function ReportsPage() {
       setError(e instanceof Error ? e.message : 'Export failed');
     } finally {
       setExportBusy(false);
+    }
+  };
+
+  const printBill = async (id: string) => {
+    const format = await dialog.prompt({
+      title: 'Print bill',
+      message: 'Choose paper format for this print.',
+      label: 'Print format',
+      defaultValue: 'A4',
+      confirmLabel: 'Print',
+      options: [
+        { value: 'A4', label: 'A4 (office / PDF)' },
+        { value: 'THERMAL_80', label: 'Thermal 80mm (POS)' },
+        { value: 'THERMAL_58', label: 'Thermal 58mm (compact)' },
+      ],
+    });
+    if (!format) return;
+    try {
+      setError(null);
+      await openInvoicePrint(() =>
+        invoicesApi.print(id, format as PrintFormat),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Print failed');
     }
   };
 
@@ -283,6 +310,7 @@ export function ReportsPage() {
               { key: 'balance', label: 'Balance', align: 'right' },
               { key: 'age', label: 'Age' },
               { key: 'status', label: 'Status' },
+              { key: 'actions', label: '' },
             ]}
             rows={receivables.rows.map((r) => ({
               id: r.id,
@@ -293,6 +321,11 @@ export function ReportsPage() {
                 balance: formatInr(r.balanceDue),
                 age: `${r.daysPastDue}d (${r.bucket})`,
                 status: r.paymentStatus,
+                actions: (
+                  <Button variant="secondary" onClick={() => void printBill(r.id)}>
+                    Print
+                  </Button>
+                ),
               },
             }))}
             emptyText="No outstanding balances."

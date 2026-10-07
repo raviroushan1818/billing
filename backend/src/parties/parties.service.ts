@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePartyDto, UpdatePartyDto } from './dto/party.dto';
 import { ImportResult, parseCsv, toCsv } from '../common/csv.util';
+import { compactPartyMeta } from '../common/party-meta.util';
 
 const PARTY_HEADERS = [
   'externalId',
@@ -16,6 +17,10 @@ const PARTY_HEADERS = [
   'pincode',
   'gstin',
   'referredBy',
+  'age',
+  'ageUnit',
+  'gender',
+  'careOf',
 ];
 
 @Injectable()
@@ -124,6 +129,10 @@ export class PartiesService {
         '800001',
         '',
         '',
+        '45',
+        'Y',
+        'Male',
+        '',
       ],
     ]);
   }
@@ -156,15 +165,32 @@ export class PartiesService {
           referredBy: (row.referredBy ?? '').trim() || null,
           isActive: true,
         };
+        const customFields = compactPartyMeta({
+          age: row.age,
+          ageUnit: row.ageUnit,
+          gender: row.gender,
+          careOf: row.careOf,
+          class: row.class,
+        });
 
         if (externalId) {
           const existing = await this.prisma.party.findFirst({
             where: { tenantId, externalId },
           });
           if (existing) {
+            const prev =
+              existing.customFields && typeof existing.customFields === 'object'
+                ? (existing.customFields as Record<string, unknown>)
+                : {};
             await this.prisma.party.update({
               where: { id: existing.id },
-              data,
+              data: {
+                ...data,
+                customFields: {
+                  ...prev,
+                  ...customFields,
+                } as Prisma.InputJsonValue,
+              },
             });
             result.updated++;
             continue;
@@ -172,7 +198,11 @@ export class PartiesService {
         }
 
         await this.prisma.party.create({
-          data: { tenantId, ...data },
+          data: {
+            tenantId,
+            ...data,
+            customFields: customFields as Prisma.InputJsonValue,
+          },
         });
         result.created++;
       } catch (e) {

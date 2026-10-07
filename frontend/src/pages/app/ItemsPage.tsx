@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { itemsApi } from '../../api';
 import type { Item } from '../../types';
-import { formatInr, toNum } from '../../utils/format';
+import {
+  exclusiveFromInclusive,
+  formatInr,
+  gstComponent,
+  inclusiveFromExclusive,
+  round2,
+  toNum,
+} from '../../utils/format';
 import { CsvImportControls } from '../../components/CsvImportControls';
 import { useDialog } from '../../components/Dialog';
 import {
@@ -14,6 +21,9 @@ import {
 } from '../../components/ui';
 import { Package } from 'lucide-react';
 
+/** How the user enters price on this form. Catalog always stores excl. GST rate. */
+type PricingMode = 'EXCL' | 'INCL';
+
 export function ItemsPage() {
   const dialog = useDialog();
   const [items, setItems] = useState<Item[]>([]);
@@ -24,8 +34,9 @@ export function ItemsPage() {
   const [description, setDescription] = useState('');
   const [hsnSac, setHsnSac] = useState('');
   const [unit, setUnit] = useState('NOS');
-  const [rate, setRate] = useState('0');
+  const [rateInput, setRateInput] = useState('');
   const [gstRate, setGstRate] = useState('18');
+  const [pricingMode, setPricingMode] = useState<PricingMode>('EXCL');
   const [barcode, setBarcode] = useState('');
   const [trackStock, setTrackStock] = useState(false);
   const [stockQty, setStockQty] = useState('0');
@@ -34,6 +45,21 @@ export function ItemsPage() {
     '' | 'tracked' | 'untracked' | 'zero' | 'instock'
   >('');
   const [gstFilter, setGstFilter] = useState('');
+
+  const gstPct = toNum(gstRate);
+  const entered = toNum(rateInput);
+
+  const pricePreview = useMemo(() => {
+    let taxable = 0;
+    if (pricingMode === 'EXCL') {
+      taxable = round2(entered);
+    } else {
+      taxable = exclusiveFromInclusive(entered, gstPct);
+    }
+    const gstAmt = gstComponent(taxable, gstPct);
+    const total = round2(taxable + gstAmt);
+    return { taxable, gstAmt, total };
+  }, [entered, gstPct, pricingMode]);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -76,11 +102,36 @@ export function ItemsPage() {
     setDescription('');
     setHsnSac('');
     setUnit('NOS');
-    setRate('0');
+    setRateInput('');
     setGstRate('18');
+    setPricingMode('EXCL');
     setBarcode('');
     setTrackStock(false);
     setStockQty('0');
+  };
+
+  const switchPricingMode = (next: PricingMode) => {
+    if (next === pricingMode) return;
+    const currentGst = toNum(gstRate);
+    const current = toNum(rateInput);
+    let nextValue = current;
+
+    // Convert the visible input so the stored excl. rate stays equivalent.
+    const taxable =
+      pricingMode === 'EXCL'
+        ? current
+        : exclusiveFromInclusive(current, currentGst);
+
+    if (next === 'EXCL') {
+      nextValue = taxable;
+    } else {
+      nextValue = inclusiveFromExclusive(taxable, currentGst);
+    }
+
+    setPricingMode(next);
+    setRateInput(
+      rateInput === '' && current === 0 ? '' : String(round2(nextValue)),
+    );
   };
 
   const startEdit = (item: Item) => {
@@ -89,8 +140,9 @@ export function ItemsPage() {
     setDescription(item.description ?? '');
     setHsnSac(item.hsnSac ?? '');
     setUnit(item.unit ?? 'NOS');
-    setRate(String(item.rate));
-    setGstRate(String(item.gstRate));
+    setPricingMode('EXCL');
+    setRateInput(String(toNum(item.rate)));
+    setGstRate(String(toNum(item.gstRate)));
     setBarcode(item.barcode ?? '');
     setTrackStock(Boolean(item.trackStock));
     setStockQty(String(item.stockQty ?? 0));
@@ -102,8 +154,8 @@ export function ItemsPage() {
       description: description || undefined,
       hsnSac: hsnSac || undefined,
       unit,
-      rate: toNum(rate),
-      gstRate: toNum(gstRate),
+      rate: pricePreview.taxable,
+      gstRate: gstPct,
       barcode: barcode || undefined,
       trackStock,
       stockQty: trackStock && !editing ? toNum(stockQty) : undefined,
@@ -151,6 +203,14 @@ export function ItemsPage() {
     }
   };
 
+  const rateLabel =
+    pricingMode === 'EXCL' ? 'Rate excl. GST (₹)' : 'Rate incl. GST (₹)';
+
+  const rateHint =
+    pricingMode === 'EXCL'
+      ? 'Taxable unit price. GST is added on the bill.'
+      : 'Enter the full price including GST. Taxable rate is calculated for you.';
+
   return (
     <>
       <PageHeader
@@ -184,6 +244,7 @@ export function ItemsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                autoComplete="off"
               />
             </Field>
             <Field label="HSN/SAC" htmlFor="i-hsn">
@@ -191,6 +252,7 @@ export function ItemsPage() {
                 id="i-hsn"
                 value={hsnSac}
                 onChange={(e) => setHsnSac(e.target.value)}
+                autoComplete="off"
               />
             </Field>
             <Field label="Unit" htmlFor="i-unit">
@@ -198,34 +260,97 @@ export function ItemsPage() {
                 id="i-unit"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
+                autoComplete="off"
               />
             </Field>
-            <Field label="Rate (₹)" htmlFor="i-rate">
-              <input
-                id="i-rate"
-                type="number"
-                min={0}
-                step="0.01"
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-                required
-              />
-            </Field>
-            <Field label="GST %" htmlFor="i-gst">
-              <input
-                id="i-gst"
-                type="number"
-                min={0}
-                step="0.01"
-                value={gstRate}
-                onChange={(e) => setGstRate(e.target.value)}
-              />
-            </Field>
+          </div>
+
+          <div className="pricing-advanced">
+            <div className="pricing-advanced-head">
+              <div>
+                <h3 className="pricing-advanced-title">Pricing &amp; GST</h3>
+                <p className="pricing-advanced-lead">
+                  Choose Exclude GST or Include GST. We always save the taxable
+                  rate for billing.
+                </p>
+              </div>
+              <div
+                className="pricing-mode-toggle"
+                role="group"
+                aria-label="Pricing mode"
+              >
+                <button
+                  type="button"
+                  className={pricingMode === 'EXCL' ? 'is-active' : undefined}
+                  aria-pressed={pricingMode === 'EXCL'}
+                  onClick={() => switchPricingMode('EXCL')}
+                >
+                  Exclude GST
+                </button>
+                <button
+                  type="button"
+                  className={pricingMode === 'INCL' ? 'is-active' : undefined}
+                  aria-pressed={pricingMode === 'INCL'}
+                  onClick={() => switchPricingMode('INCL')}
+                >
+                  Include GST
+                </button>
+              </div>
+            </div>
+
+            <div className="pricing-advanced-body">
+              <div className="pricing-advanced-fields pricing-advanced-fields-2">
+                <Field label={rateLabel} htmlFor="i-rate" hint={rateHint}>
+                  <input
+                    id="i-rate"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={rateInput}
+                    onChange={(e) => setRateInput(e.target.value)}
+                    required
+                    placeholder="0.00"
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field label="GST %" htmlFor="i-gst">
+                  <input
+                    id="i-gst"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={gstRate}
+                    onChange={(e) => setGstRate(e.target.value)}
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+
+              <aside className="pricing-breakdown" aria-live="polite">
+                <div className="pricing-breakdown-title">Breakdown</div>
+                <div className="pricing-breakdown-row">
+                  <span>Taxable</span>
+                  <strong>{formatInr(pricePreview.taxable)}</strong>
+                </div>
+                <div className="pricing-breakdown-row">
+                  <span>GST ({gstPct || 0}%)</span>
+                  <strong>{formatInr(pricePreview.gstAmt)}</strong>
+                </div>
+                <div className="pricing-breakdown-row is-total">
+                  <span>Total</span>
+                  <strong>{formatInr(pricePreview.total)}</strong>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <div className="grid-3">
             <Field label="Barcode" htmlFor="i-barcode">
               <input
                 id="i-barcode"
                 value={barcode}
                 onChange={(e) => setBarcode(e.target.value)}
+                autoComplete="off"
               />
             </Field>
             <Field label="Description" htmlFor="i-desc">
@@ -233,9 +358,10 @@ export function ItemsPage() {
                 id="i-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                autoComplete="off"
               />
             </Field>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="checkbox-field">
               <input
                 type="checkbox"
                 checked={trackStock}
@@ -251,6 +377,7 @@ export function ItemsPage() {
                   step="0.001"
                   value={stockQty}
                   onChange={(e) => setStockQty(e.target.value)}
+                  autoComplete="off"
                 />
               </Field>
             ) : null}
@@ -338,36 +465,42 @@ export function ItemsPage() {
             columns={[
               { key: 'name', label: 'Name' },
               { key: 'hsn', label: 'HSN' },
-              { key: 'rate', label: 'Rate', align: 'right' },
+              { key: 'rate', label: 'Rate excl.', align: 'right' },
+              { key: 'incl', label: 'Incl. GST', align: 'right' },
               { key: 'gst', label: 'GST%', align: 'right' },
               { key: 'stock', label: 'Stock' },
               { key: 'actions', label: '' },
             ]}
-            rows={filtered.map((i) => ({
-              id: i.id,
-              cells: {
-                name: i.name,
-                hsn: i.hsnSac ?? '—',
-                rate: formatInr(toNum(i.rate)),
-                gst: `${toNum(i.gstRate)}%`,
-                stock: i.trackStock ? String(toNum(i.stockQty)) : '—',
-                actions: (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <Button variant="secondary" onClick={() => startEdit(i)}>
-                      Edit
-                    </Button>
-                    {i.trackStock ? (
-                      <Button
-                        variant="secondary"
-                        onClick={() => void adjust(i)}
-                      >
-                        Adjust
+            rows={filtered.map((i) => {
+              const excl = toNum(i.rate);
+              const gst = toNum(i.gstRate);
+              return {
+                id: i.id,
+                cells: {
+                  name: i.name,
+                  hsn: i.hsnSac ?? '—',
+                  rate: formatInr(excl),
+                  incl: formatInr(inclusiveFromExclusive(excl, gst)),
+                  gst: `${gst}%`,
+                  stock: i.trackStock ? String(toNum(i.stockQty)) : '—',
+                  actions: (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <Button variant="secondary" onClick={() => startEdit(i)}>
+                        Edit
                       </Button>
-                    ) : null}
-                  </div>
-                ),
-              },
-            }))}
+                      {i.trackStock ? (
+                        <Button
+                          variant="secondary"
+                          onClick={() => void adjust(i)}
+                        >
+                          Adjust
+                        </Button>
+                      ) : null}
+                    </div>
+                  ),
+                },
+              };
+            })}
             emptyText="No items match your search."
           />
         )}

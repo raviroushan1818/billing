@@ -101,6 +101,8 @@ export class AuthService {
       clientId: user.tenant.clientId,
       tenantName: user.tenant.name,
       profileType: user.tenant.profileType,
+      preferredPrintFormat: user.preferredPrintFormat ?? null,
+      preferredInvoiceTheme: user.preferredInvoiceTheme ?? null,
       tenant: {
         id: user.tenant.id,
         clientId: user.tenant.clientId,
@@ -133,6 +135,44 @@ export class AuthService {
     return { message: 'Password updated' };
   }
 
+  async updateBillingPreferences(
+    user: AuthUser,
+    dto: {
+      preferredPrintFormat?: string | null;
+      preferredInvoiceTheme?: string | null;
+    },
+  ) {
+    const data: Record<string, unknown> = {};
+    if (dto.preferredPrintFormat !== undefined) {
+      data.preferredPrintFormat = dto.preferredPrintFormat || null;
+    }
+    if (dto.preferredInvoiceTheme !== undefined) {
+      data.preferredInvoiceTheme = dto.preferredInvoiceTheme || null;
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.userId },
+      data,
+    });
+
+    return this.me(user.userId);
+  }
+
+  /** Used by HMS bridge / SSO to mint the same JWT shape as login. */
+  issueTokenForUser(user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    tenantId: string;
+    preferredPrintFormat?: string | null;
+    preferredInvoiceTheme?: string | null;
+    tenant: { clientId: string; name: string; profileType: string };
+  }) {
+    return this.buildAuthResponse(user);
+  }
+
   private buildAuthResponse(user: {
     id: string;
     email: string;
@@ -140,6 +180,8 @@ export class AuthService {
     lastName: string;
     role: string;
     tenantId: string;
+    preferredPrintFormat?: string | null;
+    preferredInvoiceTheme?: string | null;
     tenant: { clientId: string; name: string; profileType: string };
   }) {
     const payload: JwtPayload = {
@@ -166,6 +208,8 @@ export class AuthService {
         clientId: user.tenant.clientId,
         tenantName: user.tenant.name,
         profileType: user.tenant.profileType,
+        preferredPrintFormat: user.preferredPrintFormat ?? null,
+        preferredInvoiceTheme: user.preferredInvoiceTheme ?? null,
       },
     };
   }

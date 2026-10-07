@@ -6,6 +6,7 @@ import {
   getStoredToken,
   storeAuth,
 } from './client';
+import { todayIso } from '../utils/format';
 import type {
   AuthUser,
   BillingAnalytics,
@@ -21,11 +22,14 @@ import type {
   ImportSummary,
   IntegrationSettings,
   Invoice,
+  InvoiceTheme,
   Item,
   Party,
   PaymentMode,
   PaymentSettings,
   PlatformInquiry,
+  PlatformSettings,
+  PrintFormat,
   PurchaseBill,
   SubscriptionPlan,
   Tenant,
@@ -56,12 +60,34 @@ export const authApi = {
       body: JSON.stringify({ currentPassword, newPassword }),
     });
   },
+  updatePreferences(payload: {
+    preferredPrintFormat?: PrintFormat | null;
+    preferredInvoiceTheme?: InvoiceTheme | null;
+  }) {
+    return api<AuthUser>('/auth/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
   logout() {
     clearAuth();
   },
 };
 
 export const platformApi = {
+  getSettings() {
+    return api<PlatformSettings>('/platform/settings');
+  },
+  updateSettings(payload: {
+    clientIdPrefix?: string;
+    clientIdSeparator?: string;
+    clientIdSuffixLength?: number;
+  }) {
+    return api<PlatformSettings>('/platform/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
   listTenants() {
     return api<Tenant[]>('/platform/tenants');
   },
@@ -69,6 +95,12 @@ export const platformApi = {
     return api<Tenant & { adminUser?: TenantUser }>('/platform/tenants', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  },
+  updateTenantClientId(id: string, clientId: string) {
+    return api<Tenant>(`/platform/tenants/${id}/client-id`, {
+      method: 'PATCH',
+      body: JSON.stringify({ clientId }),
     });
   },
   updateTenantStatus(id: string, status: string) {
@@ -474,14 +506,16 @@ export const invoicesApi = {
       body: JSON.stringify({ reason }),
     });
   },
-  print(id: string) {
+  print(id: string, format?: 'A4' | 'THERMAL_80' | 'THERMAL_58') {
+    const q = format ? `?format=${encodeURIComponent(format)}` : '';
     return api<{
       html?: string;
       url?: string;
       publicPath?: string;
       signedUrl?: string;
       gcsKey?: string;
-    }>(`/invoices/${id}/print`, {
+      printFormat?: string;
+    }>(`/invoices/${id}/print${q}`, {
       method: 'POST',
     });
   },
@@ -620,6 +654,29 @@ export const integrationsApi = {
   },
 };
 
+export const hmsApi = {
+  status() {
+    return api<{
+      linked: boolean;
+      clientId?: string;
+      apiKeyPrefix?: string | null;
+      hmsBaseUrl?: string | null;
+      hasWebhookSecret?: boolean;
+    }>('/hms/status');
+  },
+  issueApiKey(hmsBaseUrl?: string) {
+    return api<{
+      clientId: string;
+      apiKey: string;
+      webhookSecret: string;
+      message: string;
+    }>('/hms/api-key', {
+      method: 'POST',
+      body: JSON.stringify({ hmsBaseUrl }),
+    });
+  },
+};
+
 export const reportsApi = {
   dayBook(from?: string, to?: string) {
     const qs = new URLSearchParams();
@@ -723,7 +780,7 @@ export const auditApi = {
 
 export const dashboardApi = {
   async todaySummary() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIso();
     const [invoices, collections] = await Promise.all([
       invoicesApi.list({ from: today, to: today, status: 'FINALIZED' }),
       reportsApi.collections(today, today),

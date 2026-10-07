@@ -10,6 +10,7 @@ import {
   IsInt,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -115,6 +116,11 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   referredBy?: string;
+
+  @IsOptional()
+  @IsObject()
+  @Type(() => Object)
+  partyMeta?: Record<string, string>;
 
   @IsOptional()
   @IsString()

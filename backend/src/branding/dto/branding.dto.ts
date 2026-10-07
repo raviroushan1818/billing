@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BrandAlign, HeaderMode, InvoiceTheme } from '@prisma/client';
+import { BrandAlign, HeaderMode, InvoiceTheme, PrintFormat } from '@prisma/client';
 
 export class UpdateBrandTemplateDto {
   @IsOptional()
@@ -54,6 +54,13 @@ export class UpdateBrandTemplateDto {
   bannerHeightPx?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(10)
+  @Max(16)
+  fontSizePx?: number;
+
+  @IsOptional()
   @IsEnum(InvoiceTheme)
   invoiceTheme?: InvoiceTheme;
 
@@ -64,4 +71,8 @@ export class UpdateBrandTemplateDto {
   @IsOptional()
   @IsEnum(HeaderMode)
   headerMode?: HeaderMode;
+
+  @IsOptional()
+  @IsEnum(PrintFormat)
+  printFormat?: PrintFormat;
 }

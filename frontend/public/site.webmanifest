@@ -1,0 +1,32 @@
+{
+  "name": "IndBill — Billing Management Suite",
+  "short_name": "IndBill",
+  "description": "GST billing management suite by Indian Software Services for Indian hospitals, schools, clinics and retail.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8eaed",
+  "theme_color": "#0a2540",
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

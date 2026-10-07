@@ -62,6 +62,8 @@ export function useTenantProfile() {
     invoiceTitle:
       tenant?.profileConfig?.invoiceTitle ?? defaults.invoiceTitle,
     showRefBy: profileType === 'HOSPITAL' || profileType === 'CLINIC',
+    showPatientDemographics:
+      profileType === 'HOSPITAL' || profileType === 'CLINIC',
     showGstinProminent: profileType === 'COMMERCIAL',
     showClassField: profileType === 'SCHOOL',
   };

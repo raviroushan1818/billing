@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BrandingService } from '../branding/branding.service';
 import { MediaPurpose } from '@prisma/client';
 import { InvoicePrintData } from '../einvoice/einvoice.provider';
+import { formatPartyMetaLines } from '../common/party-meta.util';
 
 @Injectable()
 export class PdfService {
@@ -24,12 +25,20 @@ export class PdfService {
       logoUrl: null,
       bannerUrl: null,
     },
+    printFormat: 'A4' | 'THERMAL_80' | 'THERMAL_58' = 'A4',
   ): string {
+    if (printFormat === 'THERMAL_80' || printFormat === 'THERMAL_58') {
+      return this.renderThermalHtml(data, assets, printFormat);
+    }
+
     const color = data.brand.primaryColor ?? '#0f4c81';
-    const title = data.brand.invoiceTitle ?? 'TAX INVOICE';
+    const title = documentTitle(data);
     const sellerAddress = data.sellerAddress ?? '';
     const logoW = data.brand.logoWidthPx ?? 72;
     const bannerH = data.brand.bannerHeightPx ?? 100;
+    const fontSize = clampFontSize(
+      (data.brand as { fontSizePx?: number }).fontSizePx,
+    );
     const align = (data.brand.logoAlign ?? 'LEFT').toString().toLowerCase();
     const theme = (data.brand.invoiceTheme ?? 'CLASSIC').toString().toLowerCase();
     const headerMode = (
@@ -81,7 +90,7 @@ export class PdfService {
     * { box-sizing: border-box; }
     body {
       font-family: "Segoe UI", Arial, Helvetica, sans-serif;
-      font-size: 12px;
+      font-size: ${fontSize}px;
       color: #1a2332;
       margin: 0;
       padding: 28px;
@@ -131,7 +140,7 @@ export class PdfService {
     h1.title {
       color: ${color};
       margin: 0;
-      font-size: 20px;
+      font-size: 1.67em;
       letter-spacing: 0.06em;
       font-weight: 700;
     }
@@ -154,7 +163,7 @@ export class PdfService {
       background: #fff;
     }
     .party-box .label {
-      font-size: 10px;
+      font-size: 0.83em;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: #64748b;
@@ -168,7 +177,7 @@ export class PdfService {
     }
     table.items th {
       background: #f1f5f9;
-      font-size: 11px;
+      font-size: 0.92em;
       text-transform: uppercase;
       letter-spacing: 0.03em;
       color: #334155;
@@ -181,17 +190,17 @@ export class PdfService {
     table.totals tr.grand td {
       border-top: 2px solid ${color};
       padding-top: 8px;
-      font-size: 13px;
+      font-size: 1.08em;
     }
     .footer-block {
       margin-top: 22px;
       padding-top: 12px;
       border-top: 1px dashed #cbd5e1;
-      font-size: 11px;
+      font-size: 0.92em;
       color: #475569;
     }
     .footer-block p { margin: 0 0 4px; }
-    ${themeStyles(theme, color)}
+    ${themeStyles(theme, color, fontSize)}
   </style>
 </head>
 <body class="theme-${theme}">
@@ -214,6 +223,10 @@ export class PdfService {
     <div class="party-box">
       <div class="label">Bill To</div>
       <strong>${escapeHtml(data.partyName)}</strong><br/>
+      ${formatPartyMetaLines(data.partyMeta)
+        .map((line) => `${escapeHtml(line)}<br/>`)
+        .join('')}
+      ${data.referredBy ? `Ref By: ${escapeHtml(data.referredBy)}<br/>` : ''}
       ${data.partyPhone ? `Phone: ${escapeHtml(data.partyPhone)}<br/>` : ''}
       ${data.partyGstin ? `GSTIN: ${escapeHtml(data.partyGstin)}<br/>` : ''}
       ${data.partyAddress ? escapeHtml(data.partyAddress) : ''}
@@ -238,7 +251,7 @@ export class PdfService {
     </div>
     ${
       data.payments.length
-        ? `<h3 style="margin:18px 0 6px;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Payments</h3>
+        ? `<h3 style="margin:18px 0 6px;font-size:1em;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Payments</h3>
            <table class="items"><thead><tr><th>Mode</th><th>Amount</th><th>Ref</th></tr></thead><tbody>${paymentsHtml}</tbody></table>`
         : ''
     }
@@ -248,20 +261,131 @@ export class PdfService {
 </html>`;
   }
 
-  async buildInvoiceHtml(data: InvoicePrintData): Promise<string> {
+  renderThermalHtml(
+    data: InvoicePrintData,
+    assets: { logoUrl: string | null; bannerUrl: string | null },
+    printFormat: 'THERMAL_80' | 'THERMAL_58',
+  ): string {
+    const mm = printFormat === 'THERMAL_58' ? 58 : 80;
+    const title = documentTitle(data);
+    const fontSize = clampFontSize(
+      (data.brand as { fontSizePx?: number }).fontSizePx,
+    );
+    const bodyPx = mm === 58 ? Math.max(9, fontSize - 2) : Math.max(10, fontSize - 1);
+    const shopPx = bodyPx + 2;
+    const shop =
+      data.sellerLegalName ||
+      stripHtml(data.brand.headerHtml || '') ||
+      'Shop';
+
+    const linesHtml = data.lines
+      .map((l) => {
+        const name = escapeHtml(l.description);
+        const qty = Number(l.qty);
+        const total = fmt(l.lineTotal);
+        return `<div class="t-line">
+          <div class="t-item">${name}</div>
+          <div class="t-row"><span>${qty} x ${fmt(l.rate)}</span><span>${total}</span></div>
+          ${l.hsnSac ? `<div class="t-muted">HSN ${escapeHtml(l.hsnSac)} · GST ${Number(l.gstRate)}%</div>` : `<div class="t-muted">GST ${Number(l.gstRate)}%</div>`}
+        </div>`;
+      })
+      .join('');
+
+    const paymentsHtml = data.payments
+      .map(
+        (p) =>
+          `<div class="t-row"><span>${escapeHtml(p.mode)}${p.upiRefId ? ` (${escapeHtml(p.upiRefId)})` : ''}</span><span>${fmt(p.amount)}</span></div>`,
+      )
+      .join('');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <style>
+    @page { size: ${mm}mm auto; margin: 2mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 4px;
+      width: ${mm}mm;
+      max-width: ${mm}mm;
+      font-family: "Courier New", Courier, monospace;
+      font-size: ${bodyPx}px;
+      color: #111;
+      line-height: 1.35;
+    }
+    .t-center { text-align: center; }
+    .t-shop { font-weight: 700; font-size: ${shopPx}px; margin: 0 0 2px; }
+    .t-title { font-weight: 700; margin: 6px 0 4px; letter-spacing: 0.04em; }
+    .t-muted { color: #444; font-size: 0.9em; }
+    .t-rule { border-top: 1px dashed #000; margin: 6px 0; }
+    .t-row { display: flex; justify-content: space-between; gap: 6px; }
+    .t-line { margin-bottom: 6px; }
+    .t-item { font-weight: 600; }
+    .t-logo { max-width: 48px; max-height: 48px; object-fit: contain; margin: 0 auto 4px; display: block; }
+    .t-grand { font-weight: 700; font-size: 1.15em; margin-top: 4px; }
+    .t-footer { margin-top: 8px; font-size: 0.85em; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="t-center">
+    ${assets.logoUrl ? `<img class="t-logo" src="${escapeAttr(assets.logoUrl)}" alt=""/>` : ''}
+    <div class="t-shop">${escapeHtml(shop)}</div>
+    ${data.sellerGstin && data.brand.showGstin ? `<div class="t-muted">GSTIN: ${escapeHtml(data.sellerGstin)}</div>` : ''}
+    ${data.sellerAddress ? `<div class="t-muted">${escapeHtml(data.sellerAddress)}</div>` : ''}
+    <div class="t-title">${escapeHtml(title)}</div>
+  </div>
+  <div class="t-rule"></div>
+  <div class="t-row"><span>Bill</span><span>${escapeHtml(data.billNo)}</span></div>
+  <div class="t-row"><span>Date</span><span>${data.invoiceDate.toISOString().slice(0, 10)}</span></div>
+  <div class="t-rule"></div>
+  <div><strong>${escapeHtml(data.partyName)}</strong></div>
+  ${formatPartyMetaLines(data.partyMeta)
+    .map((line) => `<div class="t-muted">${escapeHtml(line)}</div>`)
+    .join('')}
+  ${data.referredBy ? `<div class="t-muted">Ref: ${escapeHtml(data.referredBy)}</div>` : ''}
+  ${data.partyPhone ? `<div class="t-muted">${escapeHtml(data.partyPhone)}</div>` : ''}
+  ${data.partyGstin ? `<div class="t-muted">GSTIN: ${escapeHtml(data.partyGstin)}</div>` : ''}
+  <div class="t-rule"></div>
+  ${linesHtml}
+  <div class="t-rule"></div>
+  <div class="t-row"><span>Taxable</span><span>${fmt(data.taxableAmount)}</span></div>
+  ${Number(data.cgstAmount) > 0 ? `<div class="t-row"><span>CGST</span><span>${fmt(data.cgstAmount)}</span></div>` : ''}
+  ${Number(data.sgstAmount) > 0 ? `<div class="t-row"><span>SGST</span><span>${fmt(data.sgstAmount)}</span></div>` : ''}
+  ${Number(data.igstAmount) > 0 ? `<div class="t-row"><span>IGST</span><span>${fmt(data.igstAmount)}</span></div>` : ''}
+  <div class="t-row t-grand"><span>TOTAL</span><span>₹${fmt(data.grandTotal)}</span></div>
+  ${
+    data.payments.length
+      ? `<div class="t-rule"></div><div class="t-muted">Payments</div>${paymentsHtml}`
+      : ''
+  }
+  <div class="t-rule"></div>
+  <div class="t-footer t-muted">Thank you · ${escapeHtml(title)}</div>
+  ${data.brand.footerHtml ? `<div class="t-footer">${stripHtml(data.brand.footerHtml)}</div>` : ''}
+</body>
+</html>`;
+  }
+
+  async buildInvoiceHtml(
+    data: InvoicePrintData,
+    printFormat: 'A4' | 'THERMAL_80' | 'THERMAL_58' = 'A4',
+  ): Promise<string> {
     const [logoUrl, bannerUrl] = await Promise.all([
       this.branding.resolveMediaUrl(data.brand.logoGcsKey),
       this.branding.resolveMediaUrl(data.brand.letterhead),
     ]);
-    return this.renderHtml(data, { logoUrl, bannerUrl });
+    return this.renderHtml(data, { logoUrl, bannerUrl }, printFormat);
   }
 
   async generateInvoicePdf(
     data: InvoicePrintData,
     tenantId: string,
     html?: string,
+    printFormat: 'A4' | 'THERMAL_80' | 'THERMAL_58' = 'A4',
   ): Promise<{ gcsKey: string; publicPath?: string; signedUrl?: string }> {
-    const invoiceHtml = html ?? (await this.buildInvoiceHtml(data));
+    const invoiceHtml =
+      html ?? (await this.buildInvoiceHtml(data, printFormat));
     const executablePath = this.config.get<string>('PUPPETEER_EXECUTABLE_PATH');
 
     const browser = await puppeteer.launch({
@@ -273,16 +397,22 @@ export class PdfService {
     try {
       const page = await browser.newPage();
       await page.setContent(invoiceHtml, { waitUntil: 'load' });
-      const buffer = Buffer.from(
-        await page.pdf({ format: 'A4', printBackground: true }),
-      );
+      const pdfOpts =
+        printFormat === 'A4'
+          ? { format: 'A4' as const, printBackground: true }
+          : {
+              width: printFormat === 'THERMAL_58' ? '58mm' : '80mm',
+              printBackground: true,
+              margin: { top: '2mm', bottom: '2mm', left: '2mm', right: '2mm' },
+            };
+      const buffer = Buffer.from(await page.pdf(pdfOpts));
 
       const uploaded = await this.storage.uploadForPurpose(
         tenantId,
         MediaPurpose.INVOICE_PDF,
         buffer,
         'application/pdf',
-        `${data.billNo}.pdf`,
+        `${data.billNo}-${printFormat.toLowerCase()}.pdf`,
       );
 
       await this.prisma.invoice.update({
@@ -302,6 +432,22 @@ export class PdfService {
   }
 }
 
+function documentTitle(data: InvoicePrintData): string {
+  const type = (data.documentType ?? 'TAX_INVOICE').toString().toUpperCase();
+  if (type === 'CREDIT_NOTE') return 'CREDIT NOTE';
+  if (type === 'DEBIT_NOTE') return 'DEBIT NOTE';
+  return data.brand.invoiceTitle?.trim() || 'TAX INVOICE';
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function fmt(value: { toString(): string } | number): string {
   return Number(value).toFixed(2);
 }
@@ -318,7 +464,13 @@ function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function themeStyles(theme: string, color: string): string {
+function clampFontSize(n?: number | null): number {
+  const v = Number(n ?? 12);
+  if (!Number.isFinite(v)) return 12;
+  return Math.min(16, Math.max(10, Math.round(v)));
+}
+
+function themeStyles(theme: string, color: string, fontSize: number): string {
   switch (theme) {
     case 'modern':
       return `
@@ -342,8 +494,8 @@ function themeStyles(theme: string, color: string): string {
       `;
     case 'compact':
       return `
-        body { font-size: 10px; padding: 16px; }
-        h1.title { font-size: 14px; }
+        body { font-size: ${Math.max(9, fontSize - 2)}px; padding: 16px; }
+        h1.title { font-size: 1.4em; }
         .meta-grid { padding: 6px 8px; gap: 4px 12px; }
         table.items th, table.items td { padding: 3px 5px; }
         .letterhead img { height: 56px !important; }
@@ -357,7 +509,7 @@ function themeStyles(theme: string, color: string): string {
           padding-bottom: 12px;
         }
         h1.title {
-          font-size: 26px;
+          font-size: 2.15em;
           text-transform: uppercase;
           letter-spacing: 0.12em;
         }
@@ -380,6 +532,46 @@ function themeStyles(theme: string, color: string): string {
         .party-box {
           border: 2px solid ${color};
           border-left-width: 6px;
+        }
+      `;
+    case 'gst':
+      return `
+        .header {
+          border: 1px solid ${color};
+          padding: 12px;
+          border-radius: 0;
+        }
+        h1.title {
+          font-size: 1.5em;
+          text-align: center;
+          width: 100%;
+          border: 1px solid ${color};
+          padding: 8px;
+          background: ${color}10;
+          letter-spacing: 0.08em;
+        }
+        .title-bar { justify-content: center; }
+        .meta-grid {
+          border: 1px solid ${color};
+          border-radius: 0;
+          background: #fff;
+        }
+        .party-box {
+          border: 1px solid ${color};
+          border-left-width: 1px;
+          border-radius: 0;
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+        table.items th {
+          background: ${color}14;
+          border-color: ${color};
+          color: #0f172a;
+        }
+        table.items td { border-color: ${color}66; }
+        table.totals tr.grand td {
+          border-top: 2px solid ${color};
+          background: ${color}0d;
         }
       `;
     default: // classic

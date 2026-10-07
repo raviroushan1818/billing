@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { integrationsApi } from '../../api';
+import { integrationsApi, hmsApi } from '../../api';
 import {
   Alert,
   Button,
@@ -25,23 +25,43 @@ export function IntegrationsPage() {
   const [hasWaToken, setHasWaToken] = useState(false);
   const [testTo, setTestTo] = useState('');
   const [testMsg, setTestMsg] = useState<string | null>(null);
+  const [hmsBaseUrl, setHmsBaseUrl] = useState(
+    'https://indhms.indiansoftwareservices.com',
+  );
+  const [hmsStatus, setHmsStatus] = useState<{
+    linked: boolean;
+    clientId?: string;
+    apiKeyPrefix?: string | null;
+  } | null>(null);
+  const [hmsIssued, setHmsIssued] = useState<{
+    clientId: string;
+    apiKey: string;
+    webhookSecret: string;
+  } | null>(null);
 
   useEffect(() => {
-    integrationsApi
-      .get()
-      .then((s) => {
-        setSmtpHost(s.smtpHost ?? '');
-        setSmtpPort(String(s.smtpPort ?? 587));
-        setSmtpUser(s.smtpUser ?? '');
-        setSmtpSecure(s.smtpSecure ?? true);
-        setSmtpFromEmail(s.smtpFromEmail ?? '');
-        setSmtpFromName(s.smtpFromName ?? '');
-        setHasSmtpPass(!!s.hasSmtpPass);
-        setWaPhoneNumberId(s.waPhoneNumberId ?? '');
-        setWaApiVersion(s.waApiVersion ?? 'v19.0');
-        setHasWaToken(!!s.hasWaToken);
+    Promise.all([
+      integrationsApi.get().catch(() => null),
+      hmsApi.status().catch(() => null),
+    ])
+      .then(([s, h]) => {
+        if (s) {
+          setSmtpHost(s.smtpHost ?? '');
+          setSmtpPort(String(s.smtpPort ?? 587));
+          setSmtpUser(s.smtpUser ?? '');
+          setSmtpSecure(s.smtpSecure ?? true);
+          setSmtpFromEmail(s.smtpFromEmail ?? '');
+          setSmtpFromName(s.smtpFromName ?? '');
+          setHasSmtpPass(!!s.hasSmtpPass);
+          setWaPhoneNumberId(s.waPhoneNumberId ?? '');
+          setWaApiVersion(s.waApiVersion ?? 'v19.0');
+          setHasWaToken(!!s.hasWaToken);
+        }
+        if (h) {
+          setHmsStatus(h);
+          if (h.hmsBaseUrl) setHmsBaseUrl(h.hmsBaseUrl);
+        }
       })
-      .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
 
@@ -219,6 +239,67 @@ export function IntegrationsPage() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="panel" style={{ marginTop: 16 }}>
+        <h3>IndHMS hospital bridge</h3>
+        <p className="muted">
+          Generate an API key for IndHMS. Paste Client ID, API key, and webhook secret into IndHMS
+          Settings → GST Billing SaaS. Set HMS base URL to your IndHMS origin for payment webhooks.
+        </p>
+        {hmsStatus?.linked ? (
+          <Alert variant="success">
+            Linked · Client {hmsStatus.clientId} · key prefix {hmsStatus.apiKeyPrefix}
+          </Alert>
+        ) : (
+          <Alert>Not linked yet — generate a key below.</Alert>
+        )}
+        <Field label="IndHMS base URL (webhook target)">
+          <input
+            className="input"
+            value={hmsBaseUrl}
+            onChange={(e) => setHmsBaseUrl(e.target.value)}
+            placeholder="https://indhms.indiansoftwareservices.com"
+          />
+        </Field>
+        <Button
+          type="button"
+          onClick={() => {
+            void hmsApi
+              .issueApiKey(hmsBaseUrl)
+              .then((r) => {
+                setHmsIssued({
+                  clientId: r.clientId,
+                  apiKey: r.apiKey,
+                  webhookSecret: r.webhookSecret,
+                });
+                setHmsStatus({
+                  linked: true,
+                  clientId: r.clientId,
+                  apiKeyPrefix: r.apiKey.slice(0, 12),
+                });
+              })
+              .catch((e) =>
+                setTestMsg(e instanceof Error ? e.message : 'Failed to issue key'),
+              );
+          }}
+        >
+          Generate HMS API key
+        </Button>
+        {hmsIssued ? (
+          <div className="panel" style={{ marginTop: 12 }}>
+            <p>
+              <strong>Client ID:</strong> {hmsIssued.clientId}
+            </p>
+            <p>
+              <strong>API key:</strong> <code>{hmsIssued.apiKey}</code>
+            </p>
+            <p>
+              <strong>Webhook / SSO secret:</strong> <code>{hmsIssued.webhookSecret}</code>
+            </p>
+            <p className="muted">Copy these now — the API key is shown only once.</p>
+          </div>
+        ) : null}
       </div>
     </>
   );

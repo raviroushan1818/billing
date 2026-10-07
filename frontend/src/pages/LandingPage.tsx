@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { publicApi } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { roleHome } from '../auth/roles';
-import { Alert, Button, Field } from '../components/ui';
+import { InquiryForm } from '../components/InquiryForm';
+import { BrandLogo } from '../components/BrandLogo';
+import { BRAND } from '../brand';
 import type { SubscriptionPlan } from '../types';
 
 const JSON_LD = {
@@ -11,19 +13,21 @@ const JSON_LD = {
   '@graph': [
     {
       '@type': 'Organization',
-      name: 'Indian Software Services Private Limited',
-      url: 'https://billing.indiansoftwareservices.com/',
-      logo: 'https://billing.indiansoftwareservices.com/logo.jpeg',
+      name: BRAND.companyName,
+      url: `${BRAND.siteUrl}/`,
+      logo: `${BRAND.siteUrl}/logo.svg`,
       areaServed: 'IN',
     },
     {
       '@type': 'SoftwareApplication',
-      name: 'ISS GST Billing Platform',
+      name: BRAND.productName,
+      alternateName: `${BRAND.productName} ${BRAND.productTagline}`,
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
-      url: 'https://billing.indiansoftwareservices.com/',
+      url: `${BRAND.siteUrl}/`,
+      image: `${BRAND.siteUrl}/og-image.jpg`,
       description:
-        'Multi-tenant GST billing software for Indian enterprises with tax invoices, CGST/SGST/IGST, branded PDFs, role-based access, collections reports and invoice sharing.',
+        'Multi-tenant GST billing management suite for Indian enterprises with tax invoices, CGST/SGST/IGST, branded PDFs, role-based access, collections reports and invoice sharing.',
       offers: {
         '@type': 'Offer',
         priceCurrency: 'INR',
@@ -31,7 +35,7 @@ const JSON_LD = {
       },
       provider: {
         '@type': 'Organization',
-        name: 'Indian Software Services Private Limited',
+        name: BRAND.companyName,
       },
     },
   ],
@@ -79,123 +83,6 @@ function useCountUp(target: number, active: boolean, durationMs = 1400) {
   return value;
 }
 
-function InquiryForm({
-  idPrefix,
-  submitLabel = 'Send inquiry',
-  onSuccess,
-  initialMessage = '',
-}: {
-  idPrefix: string;
-  submitLabel?: string;
-  onSuccess?: () => void;
-  initialMessage?: string;
-}) {
-  const [name, setName] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState(initialMessage);
-
-  useEffect(() => {
-    if (initialMessage) setMessage(initialMessage);
-  }, [initialMessage]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  const submitInquiry = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setBusy(true);
-    try {
-      const res = await publicApi.createInquiry({
-        name,
-        businessName,
-        phone,
-        email,
-        message,
-      });
-      setSuccess(res.message);
-      setName('');
-      setBusinessName('');
-      setPhone('');
-      setEmail('');
-      setMessage('');
-      onSuccess?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not submit inquiry');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form className="landing-form" onSubmit={(e) => void submitInquiry(e)}>
-      {error ? <Alert>{error}</Alert> : null}
-      {success ? <Alert variant="success">{success}</Alert> : null}
-      <div className="grid-2">
-        <Field label="Your name" htmlFor={`${idPrefix}-name`}>
-          <input
-            id={`${idPrefix}-name`}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            maxLength={120}
-            autoComplete="name"
-          />
-        </Field>
-        <Field label="Business name" htmlFor={`${idPrefix}-biz`}>
-          <input
-            id={`${idPrefix}-biz`}
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            required
-            maxLength={160}
-            autoComplete="organization"
-          />
-        </Field>
-        <Field label="Phone" htmlFor={`${idPrefix}-phone`}>
-          <input
-            id={`${idPrefix}-phone`}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-            maxLength={20}
-            autoComplete="tel"
-          />
-        </Field>
-        <Field label="Email" htmlFor={`${idPrefix}-email`}>
-          <input
-            id={`${idPrefix}-email`}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            maxLength={160}
-            autoComplete="email"
-          />
-        </Field>
-      </div>
-      <Field label="How can we help?" htmlFor={`${idPrefix}-msg`}>
-        <textarea
-          id={`${idPrefix}-msg`}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          required
-          minLength={10}
-          maxLength={2000}
-          rows={4}
-          placeholder="Tell us about your GST billing needs…"
-        />
-      </Field>
-      <Button type="submit" disabled={busy}>
-        {busy ? 'Sending…' : submitLabel}
-      </Button>
-    </form>
-  );
-}
-
 export function LandingPage() {
   const { user, loading } = useAuth();
   const inquiryRef = useRef<HTMLElement | null>(null);
@@ -231,6 +118,7 @@ export function LandingPage() {
   };
 
   useEffect(() => {
+    document.title = `${BRAND.productName} — ${BRAND.productTagline} | ${BRAND.companyShort}`;
     const script = document.createElement('script');
     script.type = 'application/ld+json';
     script.id = 'landing-jsonld';
@@ -311,8 +199,11 @@ export function LandingPage() {
       <header className="landing-top">
         <div className="landing-top-inner">
           <Link to="/" className="landing-brand">
-            <img src="/logo.jpeg" alt="Indian Software Services" />
-            <span>Indian Software Services</span>
+            <BrandLogo decorative width={36} height={36} />
+            <span>
+              {BRAND.productName}
+              <small>{BRAND.companyShort}</small>
+            </span>
           </Link>
           <nav className="landing-nav landing-nav-desktop" aria-label="Primary">
             <a href="#pricing">Pricing</a>
@@ -320,7 +211,8 @@ export function LandingPage() {
             <a href="#how">How it works</a>
             <a href="#guide">User guide</a>
             <a href="#industries">Industries</a>
-            <a href="#inquiry">Contact</a>
+            <Link to="/contact">Contact</Link>
+            <Link to="/privacy">Privacy</Link>
           </nav>
           <div className="landing-top-actions">
             <Link to="/login" className="landing-btn landing-btn-ghost landing-btn-signin">
@@ -368,9 +260,12 @@ export function LandingPage() {
             <a href="#industries" onClick={() => setMobileNavOpen(false)}>
               Industries
             </a>
-            <a href="#inquiry" onClick={() => setMobileNavOpen(false)}>
+            <Link to="/contact" onClick={() => setMobileNavOpen(false)}>
               Contact
-            </a>
+            </Link>
+            <Link to="/privacy" onClick={() => setMobileNavOpen(false)}>
+              Privacy
+            </Link>
             <Link
               to="/login"
               className="landing-btn landing-btn-ghost"
@@ -396,14 +291,17 @@ export function LandingPage() {
         <section className="landing-hero" aria-labelledby="hero-title">
           <div className="landing-hero-bg" aria-hidden="true" />
           <div className="landing-hero-inner">
-            <p className="landing-kicker">Indian Software Services</p>
+            <p className="landing-kicker">
+              {BRAND.productName} · {BRAND.companyShort}
+            </p>
             <h1 id="hero-title">
               GST billing software built for Indian businesses that move fast
             </h1>
             <p className="landing-hero-lead">
-              Multi-tenant tax invoicing with CGST, SGST &amp; IGST accuracy,
-              branded PDFs, team roles, collections reports, and one-click
-              Email / WhatsApp share — all in one professional platform.
+              {BRAND.productName} is a multi-tenant tax invoicing suite with
+              CGST, SGST &amp; IGST accuracy, branded PDFs, thermal print, team
+              roles, collections reports, and one-click Email / WhatsApp share —
+              all in one professional platform.
             </p>
             <div className="landing-hero-cta">
               <button
@@ -678,7 +576,7 @@ export function LandingPage() {
 
         <section id="how" className="landing-section landing-section-alt">
           <header className="landing-section-head">
-            <h2>How GST billing works on ISS</h2>
+            <h2>How GST billing works on IndBill</h2>
             <p>Three clear steps from counter to compliance.</p>
           </header>
           <div className="landing-flow">
@@ -862,10 +760,10 @@ export function LandingPage() {
       <footer className="landing-footer">
         <div className="landing-footer-inner">
           <div>
-            <strong>Indian Software Services</strong>
+            <strong>{BRAND.productName}</strong>
             <p>
-              Professional multi-tenant GST billing software for Indian
-              enterprises.
+              {BRAND.productTagline} by {BRAND.companyShort} — professional
+              multi-tenant GST billing for Indian enterprises.
             </p>
           </div>
           <div>
@@ -877,13 +775,19 @@ export function LandingPage() {
             >
               Request a demo
             </button>
+            <Link to="/contact">Contact us</Link>
+            <Link to="/privacy">Privacy policy</Link>
             <a href="#inquiry" onClick={scrollToInquiry}>
-              Contact section
+              Enquiry form
             </a>
           </div>
           <p className="landing-copy">
             © {new Date().getFullYear()} Indian Software Services Private
             Limited. All rights reserved.
+            {' · '}
+            <Link to="/contact">Contact us</Link>
+            {' · '}
+            <Link to="/privacy">Privacy policy</Link>
           </p>
         </div>
       </footer>
@@ -911,7 +815,7 @@ export function LandingPage() {
               ×
             </button>
             <div className="landing-popup-head">
-              <img src="/logo.jpeg" alt="" width={40} height={40} />
+              <BrandLogo decorative width={40} height={40} />
               <div>
                 <p className="landing-popup-kicker">Platform Admin</p>
                 <h2 id="landing-popup-title">Request a GST billing demo</h2>

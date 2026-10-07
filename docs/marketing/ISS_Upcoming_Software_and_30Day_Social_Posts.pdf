@@ -1,0 +1,1282 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R] /Count 7 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Length 3315 >>
+stream
+0.15 w
+/F2 22 Tf
+BT
+54.0 720.0 Td
+(Indian Software Services) Tj
+ET
+/F2 14 Tf
+BT
+54.0 691.0 Td
+(Thoughts on Upcoming Software) Tj
+ET
+BT
+54.0 673.0 Td
+(& 30-Day Social Media Content Pack) Tj
+ET
+54 653 m 558 653 l S
+/F1 11 Tf
+BT
+54.0 635.0 Td
+(Prepared for LinkedIn, Instagram, Facebook & X \(Twitter\). Copy, adapt tone, and post. Keep) Tj
+ET
+BT
+54.0 621.0 Td
+(CTAs light; lead with operator pain.) Tj
+ET
+/F2 10 Tf
+BT
+54.0 601.0 Td
+(Products in view: ISS Billing | IndHMS | SchoolERP | EduConvene | VetBook \(early\)) Tj
+ET
+/F2 14 Tf
+BT
+54.0 577.0 Td
+(Part 1 ? Strategic thoughts \(upcoming software\)) Tj
+ET
+54 563 m 558 563 l S
+/F2 11 Tf
+BT
+54.0 545.0 Td
+(1. Win the workflow, not the category label) Tj
+ET
+/F1 10 Tf
+BT
+54.0 531.0 Td
+(India does not need another 'AI platform'. It needs software that survives a busy OPD, a fee counter) Tj
+ET
+BT
+54.0 517.0 Td
+(at 9am, and GSTR filing week. ISS should keep shipping vertical workflows with shared multi-tenant) Tj
+ET
+BT
+54.0 503.0 Td
+(DNA.) Tj
+ET
+/F2 11 Tf
+BT
+54.0 483.0 Td
+(2. Role clarity is a product feature) Tj
+ET
+/F1 10 Tf
+BT
+54.0 469.0 Td
+(Doctors should not see suggested totals. Teachers should not see payment gateway keys. Super Admins) Tj
+ET
+BT
+54.0 455.0 Td
+(need Client ID formats and plans. Hide money from clinical screens; hide clinical noise from) Tj
+ET
+BT
+54.0 441.0 Td
+(cashiers.) Tj
+ET
+/F2 11 Tf
+BT
+54.0 421.0 Td
+(3. Compliance is the moat) Tj
+ET
+/F1 10 Tf
+BT
+54.0 407.0 Td
+(GST splits, HSN/SAC, FY bill numbers, thermal + A4 print, audit logs, Client IDs ? these are not) Tj
+ET
+BT
+54.0 393.0 Td
+(checkboxes. They are why a CA or hospital group stays. Double down on e-invoice readiness and) Tj
+ET
+BT
+54.0 379.0 Td
+(cleaner tax exports next.) Tj
+ET
+/F2 11 Tf
+BT
+54.0 359.0 Td
+(4. One family, clear edges) Tj
+ET
+/F1 10 Tf
+BT
+54.0 345.0 Td
+(Billing, IndHMS, SchoolERP, EduConvene, and VetBook can share auth patterns, tenancy, and print) Tj
+ET
+BT
+54.0 331.0 Td
+(discipline ? but each homepage must answer one job. Cross-sell after trust, not before.) Tj
+ET
+/F2 11 Tf
+BT
+54.0 311.0 Td
+(5. Near-term roadmap bias) Tj
+ET
+/F1 10 Tf
+BT
+54.0 297.0 Td
+(Next 90 days: \(a\) Doctor Station shows complete queues without pricing, \(b\) Billing Super Admin) Tj
+ET
+BT
+54.0 283.0 Td
+(controls + GST/print polish, \(c\) SchoolERP onboarding reliability, \(d\) EduConvene check-in) Tj
+ET
+BT
+54.0 269.0 Td
+(resilience, \(e\) VetBook discovery only ? no feature sprawl.) Tj
+ET
+/F2 11 Tf
+BT
+54.0 249.0 Td
+(6. Distribution story) Tj
+ET
+/F1 10 Tf
+BT
+54.0 235.0 Td
+(Sell to hospital groups, school networks, CA firms, and regional IT partners. Client-ID) Tj
+ET
+BT
+54.0 221.0 Td
+(multi-tenancy is already partner-friendly. Package demos as 20-minute role tours, not feature dumps.) Tj
+ET
+/F2 14 Tf
+BT
+54.0 201.0 Td
+(Part 2 ? How to use this pack) Tj
+ET
+54 187 m 558 187 l S
+/F1 10 Tf
+BT
+62.0 173.0 Td
+(? Post 1x weekday on LinkedIn; 3?4x/week on Instagram/Facebook.) Tj
+ET
+/F1 10 Tf
+BT
+62.0 159.0 Td
+(? Swap CTAs: demo link, DM keyword, or tag a vertical \(clinic/school\).) Tj
+ET
+/F1 10 Tf
+BT
+62.0 145.0 Td
+(? Add a real screenshot weekly ? empty dashboards kill trust.) Tj
+ET
+/F1 10 Tf
+BT
+62.0 131.0 Td
+(? Never invent patient/student data; use anonymized or demo tenants.) Tj
+ET
+/F2 14 Tf
+BT
+54.0 107.0 Td
+(Part 3 ? Daily posts \(30 days\)) Tj
+ET
+54 93 m 558 93 l S
+endstreamendobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 2964 >>
+stream
+0.15 w
+/F2 11 Tf
+BT
+54.0 720.0 Td
+(Day 1 ? Monday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 706.0 Td
+(Best for: LinkedIn / Instagram) Tj
+ET
+/F1 10 Tf
+BT
+54.0 692.0 Td
+(Most Indian SMEs don't struggle with sales. They struggle with clean GST invoices at scale.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 674.0 Td
+(ISS Billing helps hospitals, clinics, retail & service businesses raise Tax Invoices, track split) Tj
+ET
+BT
+54.0 660.0 Td
+(payments \(Cash/UPI/Card\), and stay GST-ready ? under one multi-tenant platform.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 642.0 Td
+(If billing still lives in Excel, it's time to upgrade.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 624.0 Td
+(#GSTBilling #SaaSIndia #Invoicing) Tj
+ET
+54 608 m 558 608 l S
+/F2 11 Tf
+BT
+54.0 590.0 Td
+(Day 2 ? Tuesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 576.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 562.0 Td
+(Thought for builders: vertical software wins when it respects the operator's day.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 544.0 Td
+(A receptionist needs speed. A doctor needs clinical clarity ? not pricing. A billing clerk needs GST) Tj
+ET
+BT
+54.0 530.0 Td
+(accuracy.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 512.0 Td
+(That's why our stack separates roles:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 498.0 Td
+(? IndHMS for clinical care) Tj
+ET
+/F1 10 Tf
+BT
+54.0 484.0 Td
+(? ISS Billing for GST & collections) Tj
+ET
+/F1 10 Tf
+BT
+54.0 470.0 Td
+(? SchoolERP for academics & fees) Tj
+ET
+/F1 10 Tf
+BT
+54.0 452.0 Td
+(Same company. Different jobs. No clutter.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 434.0 Td
+(#ProductThinking #HealthTech #EdTech) Tj
+ET
+54 418 m 558 418 l S
+/F2 11 Tf
+BT
+54.0 400.0 Td
+(Day 3 ? Wednesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 386.0 Td
+(Best for: Instagram / Facebook) Tj
+ET
+/F1 10 Tf
+BT
+54.0 372.0 Td
+(3 signs your clinic needs modern billing:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 354.0 Td
+(1. Invoices look different every week) Tj
+ET
+/F1 10 Tf
+BT
+54.0 340.0 Td
+(2. UPI + cash totals never match the register) Tj
+ET
+/F1 10 Tf
+BT
+54.0 326.0 Td
+(3. GSTR-1 prep starts with panic) Tj
+ET
+/F1 10 Tf
+BT
+54.0 308.0 Td
+(ISS Billing: branded tax invoices, split payments, day book & collections reports.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 290.0 Td
+(Link in bio ? billing.indiansoftwareservices.com) Tj
+ET
+54 274 m 558 274 l S
+/F2 11 Tf
+BT
+54.0 256.0 Td
+(Day 4 ? Thursday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 242.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 228.0 Td
+(Upcoming software direction \(ISS\):) Tj
+ET
+/F1 10 Tf
+BT
+54.0 210.0 Td
+(1. Deeper GST automation ? e-invoice readiness, cleaner GSTR exports) Tj
+ET
+/F1 10 Tf
+BT
+54.0 196.0 Td
+(2. Clinical calm in IndHMS ? doctor views without billing noise) Tj
+ET
+/F1 10 Tf
+BT
+54.0 182.0 Td
+(3. SchoolERP ? fees + academics in one tenant model) Tj
+ET
+/F1 10 Tf
+BT
+54.0 168.0 Td
+(4. EduConvene ? event registration that actually reaches the floor via mobile) Tj
+ET
+/F1 10 Tf
+BT
+54.0 154.0 Td
+(5. VetBook ? early-stage companion care, same product discipline) Tj
+ET
+/F1 10 Tf
+BT
+54.0 136.0 Td
+(We're not chasing every feature. We're shipping the next boring, reliable workflow.) Tj
+ET
+54 120 m 558 120 l S
+endstreamendobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 2988 >>
+stream
+0.15 w
+/F2 11 Tf
+BT
+54.0 720.0 Td
+(Day 5 ? Friday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 706.0 Td
+(Best for: LinkedIn / X) Tj
+ET
+/F1 10 Tf
+BT
+54.0 692.0 Td
+(Friday product note:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 674.0 Td
+(Super Admins shouldn't invent Client IDs by hand ? and doctors shouldn't see "Suggested Total".) Tj
+ET
+/F1 10 Tf
+BT
+54.0 656.0 Td
+(Small UX choices compound into trust.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 638.0 Td
+(This week we tightened platform controls on ISS Billing and kept clinical screens clinical.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 620.0 Td
+(What workflow are you still fighting with a spreadsheet?) Tj
+ET
+54 604 m 558 604 l S
+/F2 11 Tf
+BT
+54.0 586.0 Td
+(Day 6 ? Saturday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 572.0 Td
+(Best for: Instagram) Tj
+ET
+/F1 10 Tf
+BT
+54.0 558.0 Td
+(Weekend carousel idea \(caption\):) Tj
+ET
+/F1 10 Tf
+BT
+54.0 540.0 Td
+(Slide 1: GST invoice in 60 seconds) Tj
+ET
+/F1 10 Tf
+BT
+54.0 526.0 Td
+(Slide 2: Exclude vs Include GST ? clear pricing) Tj
+ET
+/F1 10 Tf
+BT
+54.0 512.0 Td
+(Slide 3: Print A4 or thermal \(80/58mm\)) Tj
+ET
+/F1 10 Tf
+BT
+54.0 498.0 Td
+(Slide 4: Super Admin onboards a new client) Tj
+ET
+/F1 10 Tf
+BT
+54.0 484.0 Td
+(Slide 5: CTA ? Book a walkthrough) Tj
+ET
+/F1 10 Tf
+BT
+54.0 466.0 Td
+(Caption: Professional invoices build professional businesses. ISS Billing.) Tj
+ET
+54 450 m 558 450 l S
+/F2 11 Tf
+BT
+54.0 432.0 Td
+(Day 7 ? Sunday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 418.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 404.0 Td
+(Sunday reflection for founders in Bharat:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 386.0 Td
+(Software isn't the brand. Reliability is.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 368.0 Td
+(Uptime, readable invoices, role-based access, audit trails ? that's what hospitals and schools pay) Tj
+ET
+BT
+54.0 354.0 Td
+(for.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 336.0 Td
+(Indian Software Services is building that layer across billing, hospitals, schools, and events.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 318.0 Td
+(Quiet products. Loud outcomes.) Tj
+ET
+54 302 m 558 302 l S
+/F2 11 Tf
+BT
+54.0 284.0 Td
+(Day 8 ? Monday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 270.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 256.0 Td
+(Hospitals don't need another dashboard. They need the right screen for the right role.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 238.0 Td
+(IndHMS Doctor Station: queue, vitals, diagnosis, Rx, ward notes.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 224.0 Td
+(Pricing stays with billing ? where it belongs.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 206.0 Td
+(Clinical focus = fewer mistakes = better care.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 188.0 Td
+(#IndHMS #HospitalManagement #DigitalHealth) Tj
+ET
+54 172 m 558 172 l S
+/F2 11 Tf
+BT
+54.0 154.0 Td
+(Day 9 ? Tuesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 140.0 Td
+(Best for: LinkedIn / Facebook) Tj
+ET
+/F1 10 Tf
+BT
+54.0 126.0 Td
+(School ops tip:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 108.0 Td
+(If admissions, fees, and academics live in three tools, parents feel it first ? then your office) Tj
+ET
+BT
+54.0 94.0 Td
+(does.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 76.0 Td
+(SchoolERP: multi-tenant school management built the same way we run billing for enterprises.) Tj
+ET
+/F1 10 Tf
+endstreamendobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 2857 >>
+stream
+0.15 w
+BT
+54.0 720.0 Td
+(One school. One source of truth.) Tj
+ET
+54 704 m 558 704 l S
+/F2 11 Tf
+BT
+54.0 686.0 Td
+(Day 10 ? Wednesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 672.0 Td
+(Best for: Instagram) Tj
+ET
+/F1 10 Tf
+BT
+54.0 658.0 Td
+(Poll: What's your biggest billing pain?) Tj
+ET
+/F1 10 Tf
+BT
+54.0 644.0 Td
+(A\) GST confusion) Tj
+ET
+/F1 10 Tf
+BT
+54.0 630.0 Td
+(B\) Printing / branding) Tj
+ET
+/F1 10 Tf
+BT
+54.0 616.0 Td
+(C\) Cash + UPI reconciliation) Tj
+ET
+/F1 10 Tf
+BT
+54.0 602.0 Td
+(D\) Managing multiple branches/clients) Tj
+ET
+/F1 10 Tf
+BT
+54.0 584.0 Td
+(Comment below ? we're shaping the roadmap with operators, not slide decks.) Tj
+ET
+54 568 m 558 568 l S
+/F2 11 Tf
+BT
+54.0 550.0 Td
+(Day 11 ? Thursday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 536.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 522.0 Td
+(Product thesis for 2026?27:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 504.0 Td
+(India's next useful software won't look flashy. It will:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 490.0 Td
+(? Speak GST & UPI natively) Tj
+ET
+/F1 10 Tf
+BT
+54.0 476.0 Td
+(? Work on mid-range hardware and thermal printers) Tj
+ET
+/F1 10 Tf
+BT
+54.0 462.0 Td
+(? Respect roles \(doctor ? cashier ? principal\)) Tj
+ET
+/F1 10 Tf
+BT
+54.0 448.0 Td
+(? Deploy as multi-tenant SaaS with Client IDs and audit logs) Tj
+ET
+/F1 10 Tf
+BT
+54.0 430.0 Td
+(That's the lane ISS is in.) Tj
+ET
+54 414 m 558 414 l S
+/F2 11 Tf
+BT
+54.0 396.0 Td
+(Day 12 ? Friday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 382.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 368.0 Td
+(Ship log \(story format\):) Tj
+ET
+/F1 10 Tf
+BT
+54.0 350.0 Td
+(This sprint: platform Client ID formats for Super Admins, print preferences per user, GST pricing) Tj
+ET
+BT
+54.0 336.0 Td
+(clarity on items, thermal + A4 themes.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 318.0 Td
+(Not glamorous. Extremely used.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 300.0 Td
+(If you run multi-location billing, follow along ? we're building in public, carefully.) Tj
+ET
+54 284 m 558 284 l S
+/F2 11 Tf
+BT
+54.0 266.0 Td
+(Day 13 ? Saturday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 252.0 Td
+(Best for: Facebook / Instagram) Tj
+ET
+/F1 10 Tf
+BT
+54.0 238.0 Td
+(For CA firms & accountants:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 220.0 Td
+(Your clients still send WhatsApp photos of invoices.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 202.0 Td
+(Give them ISS Billing instead ? FY bill numbers, HSN/SAC, CGST/SGST/IGST, day book, collections by) Tj
+ET
+BT
+54.0 188.0 Td
+(mode, GSTR-1 export.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 170.0 Td
+(You stay advisor. Software stays system of record.) Tj
+ET
+54 154 m 558 154 l S
+/F2 11 Tf
+BT
+54.0 136.0 Td
+(Day 14 ? Sunday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 122.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 108.0 Td
+(Upcoming: tighter product family under Indian Software Services.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 90.0 Td
+(Billing ? Hospitals ? Schools ? Events) Tj
+ET
+/F1 10 Tf
+BT
+54.0 76.0 Td
+(Shared DNA: multi-tenant, India-first compliance, role clarity, print-ready documents.) Tj
+ET
+/F1 10 Tf
+endstreamendobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 2717 >>
+stream
+0.15 w
+BT
+54.0 720.0 Td
+(If you're a hospital group, school network, or SaaS reseller ? let's talk distribution.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 702.0 Td
+(indian softwareservices | billing.indiansoftwareservices.com) Tj
+ET
+54 686 m 558 686 l S
+/F2 11 Tf
+BT
+54.0 668.0 Td
+(Day 15 ? Monday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 654.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 640.0 Td
+(Myth: "We need a custom ERP.") Tj
+ET
+/F1 10 Tf
+BT
+54.0 626.0 Td
+(Reality: You need reliable workflows and clear ownership.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 608.0 Td
+(Start with ISS Billing or IndHMS. Expand when the first workflow is boringly stable.) Tj
+ET
+54 592 m 558 592 l S
+/F2 11 Tf
+BT
+54.0 574.0 Td
+(Day 16 ? Tuesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 560.0 Td
+(Best for: Instagram) Tj
+ET
+/F1 10 Tf
+BT
+54.0 546.0 Td
+(Before / After:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 532.0 Td
+(Before ? handwritten bills, mismatched UPI screenshots) Tj
+ET
+/F1 10 Tf
+BT
+54.0 518.0 Td
+(After ? branded GST invoice + split payment record) Tj
+ET
+/F1 10 Tf
+BT
+54.0 500.0 Td
+(Save this if you're upgrading your front desk this quarter.) Tj
+ET
+54 484 m 558 484 l S
+/F2 11 Tf
+BT
+54.0 466.0 Td
+(Day 17 ? Wednesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 452.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 438.0 Td
+(EduConvene reminder: events fail at check-in, not at marketing.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 420.0 Td
+(Admin dashboard + delegate mobile app = registration that survives the venue floor.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 402.0 Td
+(#EventTech #EduConvene) Tj
+ET
+54 386 m 558 386 l S
+/F2 11 Tf
+BT
+54.0 368.0 Td
+(Day 18 ? Thursday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 354.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 340.0 Td
+(Design principle we use:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 322.0 Td
+(If removing a number from the doctor's screen reduces anxiety and doesn't change care ? remove it.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 304.0 Td
+(Suggested totals belong in billing. Diagnosis belongs with the clinician.) Tj
+ET
+54 288 m 558 288 l S
+/F2 11 Tf
+BT
+54.0 270.0 Td
+(Day 19 ? Friday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 256.0 Td
+(Best for: LinkedIn / X) Tj
+ET
+/F1 10 Tf
+BT
+54.0 242.0 Td
+(Hiring attention \(soft CTA\):) Tj
+ET
+/F1 10 Tf
+BT
+54.0 224.0 Td
+(Operators, hospital admins, school principals ? we want your friction list.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 210.0 Td
+(DM "ROADMAP" and tell us the one report you still build manually every month.) Tj
+ET
+54 194 m 558 194 l S
+/F2 11 Tf
+BT
+54.0 176.0 Td
+(Day 20 ? Saturday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 162.0 Td
+(Best for: Facebook) Tj
+ET
+/F1 10 Tf
+BT
+54.0 148.0 Td
+(Family-business Saturday:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 130.0 Td
+(Your second branch shouldn't mean a second Excel file.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 112.0 Td
+(Multi-tenant Client IDs keep brands separate and reporting sane.) Tj
+ET
+54 96 m 558 96 l S
+endstreamendobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 2821 >>
+stream
+0.15 w
+/F2 11 Tf
+BT
+54.0 720.0 Td
+(Day 21 ? Sunday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 706.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 692.0 Td
+(Weekly thesis:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 678.0 Td
+(Compliance software should feel calm.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 664.0 Td
+(Calm comes from defaults that match Indian practice: GST slabs, UPI, thermal prints, FY sequences.) Tj
+ET
+54 648 m 558 648 l S
+/F2 11 Tf
+BT
+54.0 630.0 Td
+(Day 22 ? Monday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 616.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 602.0 Td
+(IndHMS + Billing together:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 588.0 Td
+(Clinical encounter in the morning. Clean invoice in the evening. No double entry drama.) Tj
+ET
+54 572 m 558 572 l S
+/F2 11 Tf
+BT
+54.0 554.0 Td
+(Day 23 ? Tuesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 540.0 Td
+(Best for: Instagram) Tj
+ET
+/F1 10 Tf
+BT
+54.0 526.0 Td
+(Quick tip: Standardize invoice titles per profile ? Hospital vs Retail vs School.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 512.0 Td
+(ISS Billing profiles do that out of the box.) Tj
+ET
+54 496 m 558 496 l S
+/F2 11 Tf
+BT
+54.0 478.0 Td
+(Day 24 ? Wednesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 464.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 450.0 Td
+(Reseller angle:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 436.0 Td
+(White-label ready thinking ? Super Admin provisions clients, plans, subscriptions.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 422.0 Td
+(Build a practice on top of infrastructure, not spreadsheets.) Tj
+ET
+54 406 m 558 406 l S
+/F2 11 Tf
+BT
+54.0 388.0 Td
+(Day 25 ? Thursday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 374.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 360.0 Td
+(VetBook \(early\): same care for companion animals will need the same discipline ? visits, Rx, billing) Tj
+ET
+BT
+54.0 346.0 Td
+(boundaries.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 332.0 Td
+(We're applying hospital lessons early, not reinventing chaos.) Tj
+ET
+54 316 m 558 316 l S
+/F2 11 Tf
+BT
+54.0 298.0 Td
+(Day 26 ? Friday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 284.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 270.0 Td
+(Ship small. Observe. Harden.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 256.0 Td
+(That's how ISS products move from demo to daily dependency.) Tj
+ET
+54 240 m 558 240 l S
+/F2 11 Tf
+BT
+54.0 222.0 Td
+(Day 27 ? Saturday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 208.0 Td
+(Best for: Instagram / Facebook) Tj
+ET
+/F1 10 Tf
+BT
+54.0 194.0 Td
+(Weekend CTA:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 180.0 Td
+(Tag a clinic or shop still printing on plain paper. Gift them the idea of branded GST invoices.) Tj
+ET
+54 164 m 558 164 l S
+/F2 11 Tf
+BT
+54.0 146.0 Td
+(Day 28 ? Sunday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 132.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 118.0 Td
+(Month-ahead focus:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 104.0 Td
+(1\) Make Doctor Station data-complete & price-free) Tj
+ET
+/F1 10 Tf
+BT
+54.0 90.0 Td
+(2\) Strengthen GST/export paths in Billing) Tj
+ET
+/F1 10 Tf
+BT
+54.0 76.0 Td
+(3\) Tighten SchoolERP tenant onboarding) Tj
+ET
+/F1 10 Tf
+endstreamendobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 1725 >>
+stream
+0.15 w
+BT
+54.0 720.0 Td
+(4\) Grow EduConvene event readiness) Tj
+ET
+/F1 10 Tf
+BT
+54.0 702.0 Td
+(Follow for build-in-public notes ? practical, not hype.) Tj
+ET
+54 686 m 558 686 l S
+/F2 11 Tf
+BT
+54.0 668.0 Td
+(Day 29 ? Monday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 654.0 Td
+(Best for: LinkedIn) Tj
+ET
+/F1 10 Tf
+BT
+54.0 640.0 Td
+(Question for operators:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 626.0 Td
+(Would you rather have 50 features, or 10 that never fail at 11am rush?) Tj
+ET
+/F1 10 Tf
+BT
+54.0 608.0 Td
+(We pick the second. Every time.) Tj
+ET
+54 592 m 558 592 l S
+/F2 11 Tf
+BT
+54.0 574.0 Td
+(Day 30 ? Tuesday) Tj
+ET
+/F1 9 Tf
+BT
+54.0 560.0 Td
+(Best for: LinkedIn / Instagram) Tj
+ET
+/F1 10 Tf
+BT
+54.0 546.0 Td
+(Closing note for this content pack:) Tj
+ET
+/F1 10 Tf
+BT
+54.0 528.0 Td
+(Indian Software Services builds India-first operational software ? billing, hospitals, schools,) Tj
+ET
+BT
+54.0 514.0 Td
+(events.) Tj
+ET
+/F1 10 Tf
+BT
+54.0 496.0 Td
+(Start here: billing.indiansoftwareservices.com) Tj
+ET
+/F1 10 Tf
+BT
+54.0 482.0 Td
+(Clinical: indhms.indiansoftwareservices.com) Tj
+ET
+/F1 10 Tf
+BT
+54.0 464.0 Td
+(If this resonated, share it with one founder who still reconciles UPI on WhatsApp.) Tj
+ET
+54 448 m 558 448 l S
+/F2 12 Tf
+BT
+54.0 430.0 Td
+(Closing) Tj
+ET
+/F1 10 Tf
+BT
+54.0 414.0 Td
+(Consistency beats virality. Thirty honest posts about operator pain will outperform one hype launch.) Tj
+ET
+BT
+54.0 400.0 Td
+(Indian Software Services earns attention by being useful at the counter ? then telling that story) Tj
+ET
+BT
+54.0 386.0 Td
+(weekly.) Tj
+ET
+/F2 9 Tf
+BT
+54.0 364.0 Td
+(billing.indiansoftwareservices.com | indhms.indiansoftwareservices.com) Tj
+ET
+/F1 8 Tf
+BT
+54.0 350.0 Td
+(Document: ISS Social Content Pack ? for internal marketing use) Tj
+ET
+endstreamendobj
+18 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 17 0 R >>
+endobj
+xref
+0 19
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000156 00000 n 
+0000000226 00000 n 
+0000000301 00000 n 
+0000003667 00000 n 
+0000003803 00000 n 
+0000006818 00000 n 
+0000006954 00000 n 
+0000009993 00000 n 
+0000010130 00000 n 
+0000013039 00000 n 
+0000013177 00000 n 
+0000015946 00000 n 
+0000016084 00000 n 
+0000018957 00000 n 
+0000019095 00000 n 
+0000020872 00000 n 
+trailer
+<< /Size 19 /Root 1 0 R /Info << /Title (ISS Social Media Content Pack) /Author (Indian Software Services) >> >>
+startxref
+21010
+%%EOF

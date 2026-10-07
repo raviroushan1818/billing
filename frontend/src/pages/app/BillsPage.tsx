@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { invoicesApi, partiesApi } from '../../api';
+import { authApi, brandingApi, invoicesApi, partiesApi } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import {
   actorDisplayName,
+  actorRoleLabel,
   canCreateBills,
   canSoftDelete,
   canVoidBills,
   roleLabel,
 } from '../../auth/roles';
-import type { Invoice, InvoiceStatus, Party, PaymentMode } from '../../types';
+import type {
+  Invoice,
+  InvoiceStatus,
+  Party,
+  PaymentMode,
+  PrintFormat,
+} from '../../types';
 import { formatInr, todayIso, toNum } from '../../utils/format';
 import { openInvoicePrint } from '../../utils/printInvoice';
 import { useDialog } from '../../components/Dialog';
@@ -38,6 +45,9 @@ export function BillsPage() {
   const [documentType, setDocumentType] = useState<
     '' | 'TAX_INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'
   >('');
+  const [defaultPrintFormat, setDefaultPrintFormat] =
+    useState<PrintFormat>('A4');
+  // prefer user preference, else company branding
   const [partyId, setPartyId] = useState('');
   const [parties, setParties] = useState<Party[]>([]);
   const [q, setQ] = useState('');
@@ -77,6 +87,15 @@ export function BillsPage() {
   useEffect(() => {
     load();
     void partiesApi.list().then(setParties).catch(() => setParties([]));
+    void Promise.all([
+      brandingApi.get().catch(() => null),
+      authApi.me().catch(() => null),
+    ]).then(([brand, me]) => {
+      const fromUser = me?.preferredPrintFormat;
+      const fromBrand = brand?.printFormat;
+      if (fromUser) setDefaultPrintFormat(fromUser);
+      else if (fromBrand) setDefaultPrintFormat(fromBrand);
+    });
   }, []);
 
   const voidBill = async (id: string, billNo: string) => {
@@ -206,9 +225,24 @@ export function BillsPage() {
   };
 
   const printBill = async (id: string) => {
+    const format = await dialog.prompt({
+      title: 'Print bill',
+      message: 'Choose paper format for this print.',
+      label: 'Print format',
+      defaultValue: defaultPrintFormat,
+      confirmLabel: 'Print',
+      options: [
+        { value: 'A4', label: 'A4 (office / PDF)' },
+        { value: 'THERMAL_80', label: 'Thermal 80mm (POS)' },
+        { value: 'THERMAL_58', label: 'Thermal 58mm (compact)' },
+      ],
+    });
+    if (!format) return;
     try {
       setError(null);
-      await openInvoicePrint(() => invoicesApi.print(id));
+      await openInvoicePrint(() =>
+        invoicesApi.print(id, format as PrintFormat),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Print failed');
     }
@@ -429,6 +463,7 @@ export function BillsPage() {
               { key: 'date', label: 'Date' },
               { key: 'party', label: 'Party' },
               { key: 'raisedBy', label: 'Raised by' },
+              { key: 'finalizedBy', label: 'Finalized by' },
               { key: 'voidedBy', label: 'Voided by' },
               { key: 'total', label: 'Total', align: 'right' },
               { key: 'paid', label: 'Paid', align: 'right' },
@@ -452,15 +487,34 @@ export function BillsPage() {
                 raisedBy: (
                   <div className="actor-cell">
                     <span>{actorDisplayName(b.createdBy)}</span>
-                    {b.createdBy?.role ? (
+                    {actorRoleLabel(b.createdBy) ? (
                       <span
-                        className={`role-badge role-${b.createdBy.role.toLowerCase()}`}
+                        className={`role-badge role-${(
+                          b.createdBy?.role || 'billing_operator'
+                        ).toLowerCase()}`}
                       >
-                        {roleLabel(b.createdBy.role)}
+                        {actorRoleLabel(b.createdBy)}
                       </span>
                     ) : null}
                   </div>
                 ),
+                finalizedBy:
+                  b.status === 'FINALIZED' || b.finalizedBy ? (
+                    <div className="actor-cell">
+                      <span>{actorDisplayName(b.finalizedBy)}</span>
+                      {actorRoleLabel(b.finalizedBy) ? (
+                        <span
+                          className={`role-badge role-${(
+                            b.finalizedBy?.role || 'billing_operator'
+                          ).toLowerCase()}`}
+                        >
+                          {actorRoleLabel(b.finalizedBy)}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    '—'
+                  ),
                 voidedBy:
                   b.status === 'VOID' ? (
                     <div className="actor-cell">

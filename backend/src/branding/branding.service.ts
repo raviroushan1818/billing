@@ -30,9 +30,11 @@ export type BrandingView = {
   showGstin: boolean;
   logoWidthPx: number;
   bannerHeightPx: number;
+  fontSizePx: number;
   invoiceTheme: string;
   logoAlign: string;
   headerMode: string;
+  printFormat: string;
   logoUrl: string | null;
   bannerUrl: string | null;
   createdAt: Date;
@@ -70,9 +72,11 @@ export class BrandingService {
     if (dto.showGstin !== undefined) data.showGstin = dto.showGstin;
     if (dto.logoWidthPx !== undefined) data.logoWidthPx = dto.logoWidthPx;
     if (dto.bannerHeightPx !== undefined) data.bannerHeightPx = dto.bannerHeightPx;
+    if (dto.fontSizePx !== undefined) data.fontSizePx = dto.fontSizePx;
     if (dto.invoiceTheme !== undefined) data.invoiceTheme = dto.invoiceTheme;
     if (dto.logoAlign !== undefined) data.logoAlign = dto.logoAlign;
     if (dto.headerMode !== undefined) data.headerMode = dto.headerMode;
+    if (dto.printFormat !== undefined) data.printFormat = dto.printFormat;
 
     const template = await this.prisma.brandTemplate.update({
       where: { tenantId },
@@ -189,9 +193,11 @@ export class BrandingService {
     showGstin: boolean;
     logoWidthPx: number;
     bannerHeightPx: number;
+    fontSizePx: number;
     invoiceTheme: string;
     logoAlign: string;
     headerMode: string;
+    printFormat: string;
     createdAt: Date;
     updatedAt: Date;
   }): Promise<BrandingView> {

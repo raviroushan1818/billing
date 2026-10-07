@@ -4,18 +4,59 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TenantStatus, UserRole, BusinessProfile } from '@prisma/client';
+import { TenantStatus, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { PROFILE_DEFAULTS } from '../common/constants';
-import { CreateTenantAdminDto, CreateTenantDto } from './dto/platform.dto';
+import {
+  CreateTenantAdminDto,
+  CreateTenantDto,
+  UpdatePlatformSettingsDto,
+} from './dto/platform.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { BillingService } from '../billing/billing.service';
 
-function generateClientId(): string {
-  const suffix = randomBytes(4).toString('hex').toUpperCase();
-  return `CLI-${suffix}`;
+type ClientIdFormat = {
+  clientIdPrefix: string;
+  clientIdSeparator: string;
+  clientIdSuffixLength: number;
+};
+
+const DEFAULT_FORMAT: ClientIdFormat = {
+  clientIdPrefix: 'CLI',
+  clientIdSeparator: '-',
+  clientIdSuffixLength: 8,
+};
+
+function buildClientId(format: ClientIdFormat): string {
+  const len = Math.min(16, Math.max(4, format.clientIdSuffixLength || 8));
+  const bytes = Math.ceil(len / 2);
+  const suffix = randomBytes(bytes)
+    .toString('hex')
+    .toUpperCase()
+    .slice(0, len);
+  const prefix = (format.clientIdPrefix || 'CLI').toUpperCase();
+  const sep = format.clientIdSeparator ?? '-';
+  return `${prefix}${sep}${suffix}`;
+}
+
+function normalizeClientId(raw: string): string {
+  return raw.trim().toUpperCase();
+}
+
+function assertClientIdValue(clientId: string) {
+  if (clientId === 'PLATFORM') {
+    throw new BadRequestException('PLATFORM is a reserved Client ID');
+  }
+  if (!/^[A-Z0-9][A-Z0-9_-]*$/.test(clientId)) {
+    throw new BadRequestException(
+      'Client ID must start with a letter/number and use only letters, numbers, _ or -',
+    );
+  }
+  if (clientId.length < 3 || clientId.length > 32) {
+    throw new BadRequestException('Client ID must be 3–32 characters');
+  }
 }
 
 @Injectable()
@@ -26,14 +67,82 @@ export class PlatformService {
     private readonly billing: BillingService,
   ) {}
 
+  async getSettings() {
+    const settings = await this.ensureSettings();
+    return {
+      ...settings,
+      sampleClientId: buildClientId(settings),
+    };
+  }
+
+  async updateSettings(actor: AuthUser, dto: UpdatePlatformSettingsDto) {
+    const current = await this.ensureSettings();
+    const updated = await this.prisma.platformSettings.update({
+      where: { id: 'default' },
+      data: {
+        clientIdPrefix:
+          dto.clientIdPrefix !== undefined
+            ? dto.clientIdPrefix.toUpperCase()
+            : undefined,
+        clientIdSeparator:
+          dto.clientIdSeparator !== undefined
+            ? dto.clientIdSeparator
+            : undefined,
+        clientIdSuffixLength:
+          dto.clientIdSuffixLength !== undefined
+            ? dto.clientIdSuffixLength
+            : undefined,
+      },
+    });
+
+    await this.audit.log({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      action: 'PLATFORM_SETTINGS_UPDATED',
+      entityType: 'PlatformSettings',
+      entityId: 'default',
+      meta: {
+        before: {
+          clientIdPrefix: current.clientIdPrefix,
+          clientIdSeparator: current.clientIdSeparator,
+          clientIdSuffixLength: current.clientIdSuffixLength,
+        },
+        after: {
+          clientIdPrefix: updated.clientIdPrefix,
+          clientIdSeparator: updated.clientIdSeparator,
+          clientIdSuffixLength: updated.clientIdSuffixLength,
+        },
+      },
+    });
+
+    return {
+      ...updated,
+      sampleClientId: buildClientId(updated),
+    };
+  }
+
   async createTenant(actor: AuthUser, dto: CreateTenantDto) {
-    let clientId = generateClientId();
-    for (let i = 0; i < 5; i++) {
+    const settings = await this.ensureSettings();
+    let clientId = dto.clientId
+      ? normalizeClientId(dto.clientId)
+      : buildClientId(settings);
+
+    if (dto.clientId) {
+      assertClientIdValue(clientId);
       const exists = await this.prisma.tenant.findUnique({
         where: { clientId },
       });
-      if (!exists) break;
-      clientId = generateClientId();
+      if (exists) {
+        throw new BadRequestException('Client ID already in use');
+      }
+    } else {
+      for (let i = 0; i < 8; i++) {
+        const exists = await this.prisma.tenant.findUnique({
+          where: { clientId },
+        });
+        if (!exists) break;
+        clientId = buildClientId(settings);
+      }
     }
 
     const defaults =
@@ -77,9 +186,15 @@ export class PlatformService {
 
     await this.billing.startTrialForTenant(tenant.id, dto.planCode ?? 'GROWTH');
 
-    let adminUser: Awaited<ReturnType<PlatformService['createTenantAdmin']>> | null =
-      null;
-    if (dto.adminEmail && dto.adminPassword && dto.adminFirstName && dto.adminLastName) {
+    let adminUser: Awaited<
+      ReturnType<PlatformService['createTenantAdmin']>
+    > | null = null;
+    if (
+      dto.adminEmail &&
+      dto.adminPassword &&
+      dto.adminFirstName &&
+      dto.adminLastName
+    ) {
       adminUser = await this.createTenantAdmin(actor, tenant.id, {
         email: dto.adminEmail,
         password: dto.adminPassword,
@@ -95,6 +210,41 @@ export class PlatformService {
     }
 
     return { ...tenant, adminUser };
+  }
+
+  async updateClientId(actor: AuthUser, tenantId: string, rawClientId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (tenant.clientId === 'PLATFORM') {
+      throw new BadRequestException('Cannot change the PLATFORM Client ID');
+    }
+
+    const clientId = normalizeClientId(rawClientId);
+    assertClientIdValue(clientId);
+    if (clientId === tenant.clientId) return tenant;
+
+    const clash = await this.prisma.tenant.findUnique({ where: { clientId } });
+    if (clash) {
+      throw new BadRequestException('Client ID already in use');
+    }
+
+    const updated = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { clientId },
+    });
+
+    await this.audit.log({
+      tenantId: tenant.id,
+      userId: actor.userId,
+      action: 'TENANT_CLIENT_ID_UPDATED',
+      entityType: 'Tenant',
+      entityId: tenant.id,
+      meta: { from: tenant.clientId, to: clientId },
+    });
+
+    return updated;
   }
 
   async updateStatus(actor: AuthUser, tenantId: string, status: TenantStatus) {
@@ -212,5 +362,15 @@ export class PlatformService {
     });
 
     return user;
+  }
+
+  private async ensureSettings() {
+    const existing = await this.prisma.platformSettings.findUnique({
+      where: { id: 'default' },
+    });
+    if (existing) return existing;
+    return this.prisma.platformSettings.create({
+      data: { id: 'default', ...DEFAULT_FORMAT },
+    });
   }
 }

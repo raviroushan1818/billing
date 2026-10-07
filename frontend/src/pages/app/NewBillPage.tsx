@@ -6,16 +6,19 @@ import { useTenantProfile } from '../../hooks/useTenantProfile';
 import type { Godown, Item, Party, PaymentMode } from '../../types';
 import {
   calcBillTotals,
+  discountAmount,
   formatInr,
   lineTotal,
   round2,
   todayIso,
   toNum,
+  type DiscountType,
 } from '../../utils/format';
 import { openInvoicePrint } from '../../utils/printInvoice';
+import { compactPartyMeta, readPartyMeta } from '../../utils/partyMeta';
 import { Alert, Button, Field, PageHeader } from '../../components/ui';
 
-/** Empty string keeps number inputs blank until the user types. */
+/** Number inputs may be blank (`''`) until the user types, except qty which defaults to 1. */
 type NumInput = number | '';
 
 type LineDraft = {
@@ -27,8 +30,8 @@ type LineDraft = {
   qty: NumInput;
   rate: NumInput;
   discount: NumInput;
+  discountType: DiscountType;
   gstRate: NumInput;
-  itemQuery?: string;
   saveToCatalog?: boolean;
 };
 
@@ -47,11 +50,11 @@ function newLine(): LineDraft {
     key: `line-${++lineKey}`,
     description: '',
     hsnSac: '',
-    qty: '',
+    qty: 1,
     rate: '',
     discount: '',
-    gstRate: '',
-    itemQuery: '',
+    discountType: 'INR',
+    gstRate: 0,
     saveToCatalog: false,
     godownId: defaultGodownForNewLines || undefined,
   };
@@ -78,6 +81,7 @@ export function NewBillPage() {
     showRefBy,
     showGstinProminent,
     showClassField,
+    showPatientDemographics,
     invoiceTitle,
   } = useTenantProfile();
 
@@ -91,8 +95,15 @@ export function NewBillPage() {
   const [address, setAddress] = useState('');
   const [gstin, setGstin] = useState('');
   const [className, setClassName] = useState('');
+  const [age, setAge] = useState('');
+  const [ageUnit, setAgeUnit] = useState<'Y' | 'M'>('Y');
+  const [gender, setGender] = useState('');
+  const [careOf, setCareOf] = useState('');
   const [partyId, setPartyId] = useState<string | undefined>();
+  const [saveAsParty, setSaveAsParty] = useState(true);
   const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+  const [itemSuggestKey, setItemSuggestKey] = useState<string | null>(null);
+  const [itemSuggestIndex, setItemSuggestIndex] = useState(0);
   const [payments, setPayments] = useState<PaymentDraft[]>([
     { mode: 'CASH', enabled: true, amount: '', upiRefId: '', cardLast4: '' },
     { mode: 'UPI', enabled: false, amount: '', upiRefId: '', cardLast4: '' },
@@ -115,6 +126,7 @@ export function NewBillPage() {
           rate: toNum(l.rate),
           discount: toNum(l.discount),
           gstRate: toNum(l.gstRate),
+          discountType: l.discountType,
         })),
       ),
     [lines],
@@ -167,6 +179,17 @@ export function NewBillPage() {
         setAddress(inv.partyAddress ?? '');
         setGstin(inv.partyGstin ?? '');
         setPartyId(inv.partyId ?? undefined);
+        const meta = readPartyMeta(
+          inv.partyMeta as Record<string, unknown> | undefined,
+        );
+        setAge(meta.age ?? '');
+        setAgeUnit(meta.ageUnit === 'M' ? 'M' : 'Y');
+        setGender(meta.gender ?? '');
+        setCareOf(meta.careOf ?? '');
+        if (meta.class) setClassName(meta.class);
+        else if (inv.notes?.startsWith('Class:')) {
+          setClassName(inv.notes.replace(/^Class:\s*/, ''));
+        }
         setReadonly(inv.status !== 'DRAFT');
         if (inv.lines?.length) {
           setLines(
@@ -179,6 +202,7 @@ export function NewBillPage() {
               qty: Math.round(toNum(l.qty)),
               rate: toNum(l.rate),
               discount: toNum(l.discount),
+              discountType: 'INR' as DiscountType,
               gstRate: toNum(l.gstRate),
             })),
           );
@@ -234,14 +258,20 @@ export function NewBillPage() {
 
   const selectParty = (p: Party) => {
     setPartyId(p.id);
+    setSaveAsParty(false);
     setExternalId(p.externalId ?? '');
     setPhone(p.phone ?? '');
     setName(p.name);
     setRefBy(p.referredBy ?? '');
     setAddress(p.address ?? '');
     setGstin(p.gstin ?? '');
-    const cf = p.customFields as Record<string, string> | undefined;
-    if (cf?.class) setClassName(cf.class);
+    const cf = p.customFields as Record<string, unknown> | undefined;
+    const meta = readPartyMeta(cf);
+    if (cf?.class) setClassName(String(cf.class));
+    setAge(meta.age ?? '');
+    setAgeUnit(meta.ageUnit === 'M' ? 'M' : 'Y');
+    setGender(meta.gender ?? '');
+    setCareOf(meta.careOf ?? '');
     setSearchOpen(false);
   };
 
@@ -254,20 +284,26 @@ export function NewBillPage() {
   const pickItem = (key: string, itemId: string) => {
     const item = catalog.find((i) => i.id === itemId);
     if (!item) return;
-    updateLine(key, {
-      itemId,
-      description: item.name,
-      hsnSac: item.hsnSac ?? '',
-      rate: toNum(item.rate),
-      gstRate: toNum(item.gstRate),
-      itemQuery: item.name,
-      saveToCatalog: false,
-    });
+    setLines((prev) =>
+      prev.map((l) => {
+        if (l.key !== key) return l;
+        return {
+          ...l,
+          itemId,
+          description: item.name,
+          hsnSac: item.hsnSac ?? '',
+          rate: toNum(item.rate),
+          gstRate: toNum(item.gstRate),
+          qty: l.qty === '' || toNum(l.qty) < 1 ? 1 : l.qty,
+          saveToCatalog: false,
+        };
+      }),
+    );
+    setItemSuggestKey(null);
   };
 
   const filteredCatalog = (query: string) => {
     const q = query.trim().toLowerCase();
-    // Only show suggestions once the user starts typing
     if (!q) return [];
     return catalog
       .filter(
@@ -276,7 +312,7 @@ export function NewBillPage() {
           (i.hsnSac ?? '').toLowerCase().includes(q) ||
           (i.barcode ?? '').toLowerCase().includes(q),
       )
-      .slice(0, 20);
+      .slice(0, 12);
   };
 
   const validate = (): string | null => {
@@ -289,7 +325,18 @@ export function NewBillPage() {
         return 'Quantity must be a whole number (1, 2, 3…)';
       }
       if (l.rate === '') return 'Rate is required for each item';
-      if (l.gstRate === '') return 'GST% is required for each item';
+      // Empty GST is treated as 0% (common for hospital / exempt lines).
+      if (l.gstRate !== '' && toNum(l.gstRate) < 0) {
+        return 'GST% cannot be negative';
+      }
+      const disc = toNum(l.discount);
+      if (l.discountType === 'PCT' && disc > 100) {
+        return 'Discount % cannot exceed 100';
+      }
+      const lineValue = qty * toNum(l.rate);
+      if (l.discountType === 'INR' && disc > lineValue + 0.001) {
+        return 'Rupee discount cannot exceed item amount (qty × rate)';
+      }
     }
     const enabled = payments.filter((p) => p.enabled);
     if (!enabled.length && paymentSum > 0.01) {
@@ -319,6 +366,13 @@ export function NewBillPage() {
     partyGstin: gstin || undefined,
     partyExternalId: externalId || undefined,
     referredBy: refBy || undefined,
+    partyMeta: compactPartyMeta({
+      age,
+      ageUnit,
+      gender,
+      careOf,
+      class: className,
+    }),
     notes:
       showClassField && className.trim()
         ? `Class: ${className.trim()}`
@@ -331,7 +385,12 @@ export function NewBillPage() {
         hsnSac: l.hsnSac || undefined,
         qty: Math.round(toNum(l.qty)),
         rate: toNum(l.rate),
-        discount: toNum(l.discount),
+        discount: discountAmount(
+          Math.round(toNum(l.qty)),
+          toNum(l.rate),
+          toNum(l.discount),
+          l.discountType,
+        ),
         gstRate: toNum(l.gstRate),
         godownId: l.godownId || undefined,
       })),
@@ -358,6 +417,27 @@ export function NewBillPage() {
         throw new Error('This bill cannot be edited');
       }
 
+      let resolvedPartyId = partyId;
+      if (saveAsParty && !resolvedPartyId && name.trim()) {
+        const createdParty = await partiesApi.create({
+          name: name.trim(),
+          phone: phone || undefined,
+          address: address || undefined,
+          externalId: externalId || undefined,
+          referredBy: refBy || undefined,
+          gstin: gstin || undefined,
+          customFields: compactPartyMeta({
+            age,
+            ageUnit,
+            gender,
+            careOf,
+            class: className,
+          }),
+        });
+        resolvedPartyId = createdParty.id;
+        setPartyId(createdParty.id);
+      }
+
       const resolvedLines = [...lines];
       for (let i = 0; i < resolvedLines.length; i++) {
         const l = resolvedLines[i];
@@ -377,6 +457,7 @@ export function NewBillPage() {
 
       const payload = {
         ...buildPayload(),
+        partyId: resolvedPartyId,
         lines: resolvedLines
           .filter((l) => l.description.trim())
           .map((l) => ({
@@ -385,7 +466,12 @@ export function NewBillPage() {
             hsnSac: l.hsnSac || undefined,
             qty: Math.round(toNum(l.qty)),
             rate: toNum(l.rate),
-            discount: toNum(l.discount),
+            discount: discountAmount(
+              Math.round(toNum(l.qty)),
+              toNum(l.rate),
+              toNum(l.discount),
+              l.discountType,
+            ),
             gstRate: toNum(l.gstRate),
             godownId: l.godownId || undefined,
           })),
@@ -493,6 +579,10 @@ export function NewBillPage() {
                   onChange={(e) => void searchParty(e.target.value)}
                   placeholder={`Search ${partyIdLabel}`}
                   disabled={readonly}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  name="party-external-id"
                 />
                 {searchOpen ? (
                   <div className="search-results">
@@ -500,6 +590,7 @@ export function NewBillPage() {
                       <button
                         key={p.id}
                         type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => selectParty(p)}
                       >
                         {p.externalId ?? '—'} · {p.name}
@@ -515,6 +606,8 @@ export function NewBillPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={readonly}
+                autoComplete="off"
+                name="party-phone"
               />
             </Field>
             <Field label={partyLabel} htmlFor="pname">
@@ -524,6 +617,8 @@ export function NewBillPage() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 disabled={readonly}
+                autoComplete="off"
+                name="party-name"
               />
             </Field>
             {showRefBy ? (
@@ -533,8 +628,66 @@ export function NewBillPage() {
                   value={refBy}
                   onChange={(e) => setRefBy(e.target.value)}
                   disabled={readonly}
+                  placeholder="Consultant / referring doctor"
+                  autoComplete="off"
                 />
               </Field>
+            ) : null}
+            {showPatientDemographics ? (
+              <>
+                <Field label="Age" htmlFor="pat-age">
+                  <div className="age-field">
+                    <input
+                      id="pat-age"
+                      type="number"
+                      min={0}
+                      max={ageUnit === 'M' ? 36 : 120}
+                      step={1}
+                      inputMode="numeric"
+                      placeholder="e.g. 45"
+                      value={age}
+                      onChange={(e) =>
+                        setAge(e.target.value.replace(/[^\d]/g, '').slice(0, 3))
+                      }
+                      disabled={readonly}
+                    />
+                    <select
+                      aria-label="Age unit"
+                      value={ageUnit}
+                      onChange={(e) =>
+                        setAgeUnit(e.target.value === 'M' ? 'M' : 'Y')
+                      }
+                      disabled={readonly}
+                    >
+                      <option value="Y">Years</option>
+                      <option value="M">Months</option>
+                    </select>
+                  </div>
+                </Field>
+                <Field label="Gender" htmlFor="pat-gender">
+                  <select
+                    id="pat-gender"
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    disabled={readonly}
+                  >
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </Field>
+                <Field label="Care of (C/O)" htmlFor="pat-careof">
+                  <input
+                    id="pat-careof"
+                    value={careOf}
+                    onChange={(e) => setCareOf(e.target.value)}
+                    disabled={readonly}
+                    placeholder="Guardian / attendant"
+                    autoComplete="off"
+                  />
+                </Field>
+              </>
             ) : null}
             {showGstinProminent ? (
               <Field label="GSTIN" htmlFor="gstin">
@@ -564,6 +717,19 @@ export function NewBillPage() {
                 disabled={readonly}
               />
             </Field>
+            {!partyId && !readonly ? (
+              <Field label=" ">
+                <label className="field-label" style={{ marginTop: '0.35rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={saveAsParty}
+                    onChange={(e) => setSaveAsParty(e.target.checked)}
+                    style={{ width: 'auto', marginRight: '0.35rem' }}
+                  />
+                  Save this patient as a party for future bills
+                </label>
+              </Field>
+            ) : null}
           </div>
         </div>
 
@@ -586,60 +752,130 @@ export function NewBillPage() {
                 </tr>
               </thead>
               <tbody>
-                {lines.map((line, idx) => (
+                {lines.map((line, idx) => {
+                  const matches = filteredCatalog(line.description);
+                  const menuOpen =
+                    !readonly &&
+                    itemSuggestKey === line.key &&
+                    line.description.trim().length > 0;
+                  return (
                   <tr key={line.key}>
                     <td>{idx + 1}</td>
                     <td>
-                      {!readonly ? (
-                        <div className="item-picker">
-                          <input
-                            value={line.itemQuery ?? ''}
-                            onChange={(e) =>
-                              updateLine(line.key, {
-                                itemQuery: e.target.value,
-                                itemId: undefined,
-                              })
+                      <div className="item-suggest">
+                        <input
+                          value={line.description}
+                          onChange={(e) => {
+                            updateLine(line.key, {
+                              description: e.target.value,
+                              itemId: undefined,
+                            });
+                            setItemSuggestKey(line.key);
+                            setItemSuggestIndex(0);
+                          }}
+                          onFocus={() => {
+                            if (line.description.trim()) {
+                              setItemSuggestKey(line.key);
+                              setItemSuggestIndex(0);
                             }
-                            placeholder="Search catalog or type to filter…"
-                            list={`items-${line.key}`}
-                          />
-                          <datalist id={`items-${line.key}`}>
-                            {filteredCatalog(line.itemQuery ?? '').map((i) => (
-                              <option key={i.id} value={i.name} />
-                            ))}
-                          </datalist>
-                          {(line.itemQuery ?? '').trim() ? (
-                            <div className="btn-group" style={{ marginTop: '0.25rem' }}>
-                              {filteredCatalog(line.itemQuery ?? '')
-                                .slice(0, 5)
-                                .map((i) => (
-                                  <button
-                                    key={i.id}
-                                    type="button"
-                                    className="btn btn-ghost"
-                                    style={{ fontSize: '0.75rem', padding: '0.2rem 0.4rem' }}
-                                    onClick={() => pickItem(line.key, i.id)}
-                                  >
+                          }}
+                          onBlur={() => {
+                            window.setTimeout(() => {
+                              setItemSuggestKey((k) =>
+                                k === line.key ? null : k,
+                              );
+                            }, 160);
+                          }}
+                          onKeyDown={(e) => {
+                            if (!menuOpen) return;
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setItemSuggestKey(null);
+                              return;
+                            }
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setItemSuggestIndex((i) =>
+                                matches.length
+                                  ? Math.min(i + 1, matches.length - 1)
+                                  : 0,
+                              );
+                              return;
+                            }
+                            if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setItemSuggestIndex((i) => Math.max(i - 1, 0));
+                              return;
+                            }
+                            if (e.key === 'Enter' && matches.length) {
+                              e.preventDefault();
+                              const pick =
+                                matches[
+                                  Math.min(itemSuggestIndex, matches.length - 1)
+                                ];
+                              if (pick) pickItem(line.key, pick.id);
+                            }
+                          }}
+                          placeholder="Type to search catalog or enter item…"
+                          disabled={readonly}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          name={`bill-item-${line.key}`}
+                          role="combobox"
+                          aria-expanded={menuOpen}
+                          aria-autocomplete="list"
+                          aria-controls={`item-suggest-${line.key}`}
+                        />
+                        {menuOpen ? (
+                          <div
+                            id={`item-suggest-${line.key}`}
+                            className="item-suggest-menu"
+                            role="listbox"
+                          >
+                            {matches.length ? (
+                              matches.map((i, mi) => (
+                                <button
+                                  key={i.id}
+                                  type="button"
+                                  role="option"
+                                  aria-selected={mi === itemSuggestIndex}
+                                  className={
+                                    mi === itemSuggestIndex
+                                      ? 'is-active'
+                                      : undefined
+                                  }
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onMouseEnter={() => setItemSuggestIndex(mi)}
+                                  onClick={() => pickItem(line.key, i.id)}
+                                >
+                                  <span className="item-suggest-name">
                                     {i.name}
-                                  </button>
-                                ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      <input
-                        value={line.description}
-                        onChange={(e) =>
-                          updateLine(line.key, {
-                            description: e.target.value,
-                            itemId: undefined,
-                          })
-                        }
-                        placeholder="Item description (manual OK)"
-                        disabled={readonly}
-                      />
+                                  </span>
+                                  <span className="item-suggest-meta">
+                                    {i.hsnSac ? `HSN ${i.hsnSac} · ` : ''}
+                                    {formatInr(toNum(i.rate))}
+                                    {toNum(i.gstRate)
+                                      ? ` · ${toNum(i.gstRate)}%`
+                                      : ''}
+                                  </span>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="item-suggest-empty">
+                                No catalog match — continue typing for a custom
+                                line item
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
                       {!readonly && !line.itemId && line.description.trim() ? (
-                        <label className="field-label" style={{ marginTop: '0.25rem' }}>
+                        <label
+                          className="field-label"
+                          style={{ marginTop: '0.35rem' }}
+                        >
                           <input
                             type="checkbox"
                             checked={!!line.saveToCatalog}
@@ -683,6 +919,8 @@ export function NewBillPage() {
                           updateLine(line.key, { hsnSac: e.target.value })
                         }
                         disabled={readonly}
+                        autoComplete="off"
+                        name={`bill-hsn-${line.key}`}
                       />
                     </td>
                     <td className="num">
@@ -691,13 +929,18 @@ export function NewBillPage() {
                         min={1}
                         step={1}
                         inputMode="numeric"
-                        placeholder=""
+                        title="Quantity (whole number)"
                         value={line.qty}
                         onChange={(e) =>
                           updateLine(line.key, {
                             qty: parseQtyInput(e.target.value),
                           })
                         }
+                        onBlur={() => {
+                          if (line.qty === '' || toNum(line.qty) < 1) {
+                            updateLine(line.key, { qty: 1 });
+                          }
+                        }}
                         disabled={readonly}
                       />
                     </td>
@@ -706,7 +949,8 @@ export function NewBillPage() {
                         type="number"
                         min={0}
                         step="0.01"
-                        placeholder=""
+                        placeholder="0"
+                        title="Rate"
                         value={line.rate}
                         onChange={(e) =>
                           updateLine(line.key, {
@@ -717,32 +961,122 @@ export function NewBillPage() {
                       />
                     </td>
                     <td className="num">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        placeholder=""
-                        value={line.discount}
-                        onChange={(e) =>
-                          updateLine(line.key, {
-                            discount: parseDecimalInput(e.target.value),
-                          })
-                        }
-                        disabled={readonly}
-                      />
+                      <div className="disc-cell">
+                        <div
+                          className="disc-type-toggle"
+                          role="group"
+                          aria-label="Discount type"
+                        >
+                          <button
+                            type="button"
+                            className={
+                              line.discountType === 'INR' ? 'is-active' : undefined
+                            }
+                            disabled={readonly}
+                            title="Rupee discount"
+                            aria-pressed={line.discountType === 'INR'}
+                            onClick={() => {
+                              if (line.discountType === 'INR') return;
+                              const qty = toNum(line.qty);
+                              const rate = toNum(line.rate);
+                              const lineValue = qty * rate;
+                              const pct = toNum(line.discount);
+                              updateLine(line.key, {
+                                discountType: 'INR',
+                                discount:
+                                  lineValue > 0 && line.discount !== ''
+                                    ? round2((lineValue * pct) / 100)
+                                    : line.discount,
+                              });
+                            }}
+                          >
+                            ₹
+                          </button>
+                          <button
+                            type="button"
+                            className={
+                              line.discountType === 'PCT' ? 'is-active' : undefined
+                            }
+                            disabled={readonly}
+                            title="Percentage discount"
+                            aria-pressed={line.discountType === 'PCT'}
+                            onClick={() => {
+                              if (line.discountType === 'PCT') return;
+                              const qty = toNum(line.qty);
+                              const rate = toNum(line.rate);
+                              const lineValue = qty * rate;
+                              const amt = toNum(line.discount);
+                              updateLine(line.key, {
+                                discountType: 'PCT',
+                                discount:
+                                  lineValue > 0 && line.discount !== ''
+                                    ? round2(
+                                        Math.min(100, (amt / lineValue) * 100),
+                                      )
+                                    : line.discount,
+                              });
+                            }}
+                          >
+                            %
+                          </button>
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          max={line.discountType === 'PCT' ? 100 : undefined}
+                          step="0.01"
+                          placeholder="0"
+                          value={line.discount}
+                          onChange={(e) =>
+                            updateLine(line.key, {
+                              discount: parseDecimalInput(e.target.value),
+                            })
+                          }
+                          disabled={readonly}
+                          autoComplete="off"
+                          name={`bill-disc-${line.key}`}
+                          aria-label={
+                            line.discountType === 'PCT'
+                              ? 'Discount percent'
+                              : 'Discount amount in rupees'
+                          }
+                        />
+                      </div>
+                      {line.discountType === 'PCT' &&
+                      toNum(line.discount) > 0 &&
+                      toNum(line.qty) > 0 &&
+                      toNum(line.rate) > 0 ? (
+                        <div className="disc-hint">
+                          ={' '}
+                          {formatInr(
+                            discountAmount(
+                              toNum(line.qty),
+                              toNum(line.rate),
+                              toNum(line.discount),
+                              'PCT',
+                            ),
+                          )}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="num">
                       <input
                         type="number"
                         min={0}
                         step="0.01"
-                        placeholder=""
+                        placeholder="0"
+                        title="GST %"
                         value={line.gstRate}
                         onChange={(e) =>
                           updateLine(line.key, {
                             gstRate: parseDecimalInput(e.target.value),
                           })
                         }
+                        onBlur={() => {
+                          if (line.gstRate === '') {
+                            updateLine(line.key, { gstRate: 0 });
+                          }
+                        }}
                         disabled={readonly}
                       />
                     </td>
@@ -753,6 +1087,7 @@ export function NewBillPage() {
                           toNum(line.rate),
                           toNum(line.discount),
                           toNum(line.gstRate),
+                          line.discountType,
                         ),
                       )}
                     </td>
@@ -772,7 +1107,8 @@ export function NewBillPage() {
                       ) : null}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -806,9 +1142,9 @@ export function NewBillPage() {
         <div className="bill-form-section">
           <h3>Payment</h3>
           <p className="muted" style={{ marginTop: 0 }}>
-            Enter qty on each line first. Pay full amount, or enter less to leave
-            a <strong>balance due</strong> (partial / credit sale). Leave all
-            amounts at 0 for a full credit bill.
+            Pay the full amount, or enter less to leave a{' '}
+            <strong>balance due</strong> (partial / credit sale). Leave amounts
+            at 0 for a full credit bill.
           </p>
           <div className="payment-modes">
             {payments.map((p, i) => (

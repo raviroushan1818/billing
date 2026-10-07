@@ -60,10 +60,12 @@ Splash → Login (clientId + email + password)
       Masters: Parties | Items | Godowns (if stock)
       Ops: Purchases | E-way (if feature) | Notes (if feature)
       Insights: Reports | Receivables
-      Account: Profile | Change password | Subscription/features (read) | Logout
+      Account: Profile | Change password | Subscription/features (read) | Privacy policy (open https://billing.indiansoftwareservices.com/privacy) | Contact us (open https://billing.indiansoftwareservices.com/contact) | Logout
 ```
 
 Hide menu items the role/feature cannot use.
+
+On login and Account screens, link **Privacy policy** and **Contact us** to the hosted web URLs above (external browser / in-app WebView). Do not re-implement those pages in Flutter.
 
 # USER FLOWS (implement exactly)
 
@@ -504,6 +506,8 @@ Start now with **Phase 0 + Phase 1**.
 | API | `https://billing.indiansoftwareservices.com/api` |
 | Login | `POST /api/auth/login` `{ clientId, email, password }` |
 | Auth header | `Authorization: Bearer <accessToken>` |
+| Privacy policy (web + app WebView / external browser) | `https://billing.indiansoftwareservices.com/privacy` |
+| Contact us (enquiry form) | `https://billing.indiansoftwareservices.com/contact` |
 | Web parity target | `/opt/billing/frontend` screens under `/app/*` |
 | Backend source | `/opt/billing/backend/src/**/*.controller.ts` |
 

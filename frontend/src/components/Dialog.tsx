@@ -37,6 +37,7 @@ type PromptOpts = {
   required?: boolean;
   multiline?: boolean;
   inputType?: 'text' | 'email' | 'tel';
+  options?: Array<{ value: string; label: string }>;
   danger?: boolean;
 };
 
@@ -81,7 +82,9 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [promptValue, setPromptValue] = useState('');
   const [promptError, setPromptError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const inputRef = useRef<
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
+  >(null);
 
   const close = useCallback(() => {
     setDialog(null);
@@ -267,7 +270,25 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                   label={dialog.opts.label ?? 'Value'}
                   htmlFor="dialog-prompt-input"
                 >
-                  {dialog.opts.multiline ? (
+                  {dialog.opts.options?.length ? (
+                    <select
+                      id="dialog-prompt-input"
+                      ref={(el) => {
+                        inputRef.current = el;
+                      }}
+                      value={promptValue}
+                      onChange={(e) => {
+                        setPromptValue(e.target.value);
+                        setPromptError(null);
+                      }}
+                    >
+                      {dialog.opts.options.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : dialog.opts.multiline ? (
                     <textarea
                       id="dialog-prompt-input"
                       ref={(el) => {

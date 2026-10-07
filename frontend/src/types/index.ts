@@ -29,6 +29,8 @@ export type AuthUser = {
   clientId?: string;
   tenantName?: string;
   profileType?: BusinessProfile;
+  preferredPrintFormat?: PrintFormat | null;
+  preferredInvoiceTheme?: InvoiceTheme | null;
   tenant?: {
     id: string;
     clientId: string;
@@ -109,6 +111,15 @@ export type GstSettings = {
   eInvoiceThreshold?: number | string;
 };
 
+export type InvoiceTheme =
+  | 'CLASSIC'
+  | 'MODERN'
+  | 'COMPACT'
+  | 'BOLD'
+  | 'GST';
+
+export type PrintFormat = 'A4' | 'THERMAL_80' | 'THERMAL_58';
+
 export type Branding = {
   id?: string;
   headerHtml?: string;
@@ -122,9 +133,11 @@ export type Branding = {
   bannerUrl?: string | null;
   logoWidthPx?: number;
   bannerHeightPx?: number;
-  invoiceTheme?: 'CLASSIC' | 'MODERN' | 'COMPACT' | 'BOLD';
+  fontSizePx?: number;
+  invoiceTheme?: InvoiceTheme;
   logoAlign?: 'LEFT' | 'CENTER' | 'RIGHT';
   headerMode?: 'COMPOSED' | 'LETTERHEAD';
+  printFormat?: PrintFormat;
 };
 
 export type IntegrationSettings = {
@@ -193,6 +206,7 @@ export type Invoice = {
   partyGstin?: string | null;
   partyExternalId?: string | null;
   referredBy?: string | null;
+  partyMeta?: Record<string, string> | null;
   referenceInvoiceId?: string | null;
   taxableAmount?: number | string;
   cgstAmount?: number | string;
@@ -205,6 +219,7 @@ export type Invoice = {
   balanceDue?: number | string;
   paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID';
   dueDate?: string | null;
+  notes?: string | null;
   lines?: InvoiceLine[];
   payments?: InvoicePayment[];
   createdAt?: string;
@@ -212,8 +227,11 @@ export type Invoice = {
   voidedAt?: string | null;
   voidReason?: string | null;
   createdById?: string | null;
+  finalizedById?: string | null;
+  finalizedAt?: string | null;
   voidedById?: string | null;
   createdBy?: InvoiceActor | null;
+  finalizedBy?: InvoiceActor | null;
   voidedBy?: InvoiceActor | null;
 };
 
@@ -286,6 +304,17 @@ export type CreateTenantPayload = {
   adminPassword: string;
   adminFirstName: string;
   adminLastName: string;
+  /** Optional; otherwise generated from platform Client ID format settings */
+  clientId?: string;
+};
+
+export type PlatformSettings = {
+  id: string;
+  clientIdPrefix: string;
+  clientIdSeparator: string;
+  clientIdSuffixLength: number;
+  sampleClientId: string;
+  updatedAt?: string;
 };
 
 export type CreateInvoicePayload = {
@@ -298,6 +327,7 @@ export type CreateInvoicePayload = {
   partyGstin?: string;
   partyExternalId?: string;
   referredBy?: string;
+  partyMeta?: Record<string, string>;
   referenceInvoiceId?: string;
   notes?: string;
   lines: Array<{

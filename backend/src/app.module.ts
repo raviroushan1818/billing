@@ -24,6 +24,7 @@ import { NotesModule } from './notes/notes.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { EwayModule } from './eway/eway.module';
+import { HmsModule } from './hms/hms.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { EwayModule } from './eway/eway.module';
     InventoryModule,
     PurchasesModule,
     EwayModule,
+    HmsModule,
   ],
   controllers: [HealthController],
   providers: [

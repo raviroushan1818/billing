@@ -10,14 +10,43 @@ import {
   PageHeader,
   useFormSubmit,
 } from '../../components/ui';
+import type { InvoiceTheme, PrintFormat } from '../../types';
 import { Palette } from 'lucide-react';
 
-const THEMES = [
-  { id: 'CLASSIC' as const, label: 'Classic', hint: 'Double-rule formal' },
-  { id: 'MODERN' as const, label: 'Modern', hint: 'Colored header bar' },
-  { id: 'COMPACT' as const, label: 'Compact', hint: 'Dense print layout' },
-  { id: 'BOLD' as const, label: 'Bold', hint: 'Strong accent title' },
+const THEMES: Array<{ id: InvoiceTheme; label: string; hint: string }> = [
+  { id: 'CLASSIC', label: 'Classic', hint: 'Double-rule formal A4' },
+  { id: 'MODERN', label: 'Modern', hint: 'Colored header bar' },
+  { id: 'COMPACT', label: 'Compact', hint: 'Dense print layout' },
+  { id: 'BOLD', label: 'Bold', hint: 'Strong accent title' },
+  { id: 'GST', label: 'GST Formal', hint: 'Indian GST boxed layout' },
 ];
+
+const PRINT_FORMATS: Array<{
+  id: PrintFormat;
+  label: string;
+  hint: string;
+}> = [
+  { id: 'A4', label: 'A4', hint: 'Standard office / PDF' },
+  { id: 'THERMAL_80', label: 'Thermal 80mm', hint: 'Retail POS printers' },
+  { id: 'THERMAL_58', label: 'Thermal 58mm', hint: 'Compact receipt printers' },
+];
+
+const FONT_PRESETS: Array<{ px: number; label: string }> = [
+  { px: 10, label: 'Small' },
+  { px: 12, label: 'Regular' },
+  { px: 14, label: 'Large' },
+  { px: 16, label: 'XL' },
+];
+
+const DOC_TYPES = [
+  { id: 'TAX_INVOICE' as const, label: 'Tax Invoice' },
+  { id: 'CREDIT_NOTE' as const, label: 'Credit Note' },
+  { id: 'DEBIT_NOTE' as const, label: 'Debit Note' },
+];
+
+function isThermalFormat(format: PrintFormat): boolean {
+  return format === 'THERMAL_80' || format === 'THERMAL_58';
+}
 
 export function BrandingPage() {
   const [loading, setLoading] = useState(true);
@@ -30,9 +59,12 @@ export function BrandingPage() {
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [logoWidthPx, setLogoWidthPx] = useState(72);
   const [bannerHeightPx, setBannerHeightPx] = useState(100);
-  const [invoiceTheme, setInvoiceTheme] = useState<
-    'CLASSIC' | 'MODERN' | 'COMPACT' | 'BOLD'
-  >('CLASSIC');
+  const [fontSizePx, setFontSizePx] = useState(12);
+  const [invoiceTheme, setInvoiceTheme] = useState<InvoiceTheme>('CLASSIC');
+  const [printFormat, setPrintFormat] = useState<PrintFormat>('A4');
+  const [previewDocType, setPreviewDocType] = useState<
+    'TAX_INVOICE' | 'CREDIT_NOTE' | 'DEBIT_NOTE'
+  >('TAX_INVOICE');
   const [logoAlign, setLogoAlign] = useState<'LEFT' | 'CENTER' | 'RIGHT'>(
     'LEFT',
   );
@@ -40,6 +72,8 @@ export function BrandingPage() {
     'COMPOSED',
   );
   const [uploadBusy, setUploadBusy] = useState<'logo' | 'banner' | null>(null);
+
+  const thermal = isThermalFormat(printFormat);
 
   useEffect(() => {
     brandingApi
@@ -54,7 +88,9 @@ export function BrandingPage() {
         setBannerUrl(b.bannerUrl ?? null);
         setLogoWidthPx(b.logoWidthPx ?? 72);
         setBannerHeightPx(b.bannerHeightPx ?? 100);
+        setFontSizePx(b.fontSizePx ?? 12);
         setInvoiceTheme(b.invoiceTheme ?? 'CLASSIC');
+        setPrintFormat(b.printFormat ?? 'A4');
         setLogoAlign(b.logoAlign ?? 'LEFT');
         setHeaderMode(b.headerMode ?? 'COMPOSED');
       })
@@ -72,9 +108,11 @@ export function BrandingPage() {
         showGstin,
         logoWidthPx,
         bannerHeightPx,
+        fontSizePx,
         invoiceTheme,
         logoAlign,
-        headerMode,
+        headerMode: thermal ? 'COMPOSED' : headerMode,
+        printFormat,
       });
       setLogoUrl(b.logoUrl ?? null);
       setBannerUrl(b.bannerUrl ?? null);
@@ -99,7 +137,7 @@ export function BrandingPage() {
       <PageHeader
         icon={<Palette size={22} />}
         title="Branding"
-        subtitle="Choose letterhead image or compose logo + company text, then pick a professional layout theme"
+        subtitle="Configure A4 invoice templates or thermal receipt layout for Indian GST billing"
       />
 
       <div className="branding-layout">
@@ -112,35 +150,143 @@ export function BrandingPage() {
               void handle(e);
             }}
           >
-            <Field label="Invoice header style" htmlFor="header-mode">
-              <div className="mode-picker" id="header-mode">
-                <button
-                  type="button"
-                  className={`mode-card${headerMode === 'COMPOSED' ? ' active' : ''}`}
-                  onClick={() => setHeaderMode('COMPOSED')}
-                >
-                  <strong>Compose logo + text</strong>
-                  <span>
-                    Upload a logo, align it, and write company details with the
-                    editor.
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className={`mode-card${headerMode === 'LETTERHEAD' ? ' active' : ''}`}
-                  onClick={() => setHeaderMode('LETTERHEAD')}
-                >
-                  <strong>Upload letterhead banner</strong>
-                  <span>
-                    Use a full-width designed letterhead image as the invoice
-                    top.
-                  </span>
-                </button>
+            <Field label="Default print format" htmlFor="print-format">
+              <div className="theme-picker" id="print-format">
+                {PRINT_FORMATS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    className={`theme-chip${printFormat === f.id ? ' active' : ''}`}
+                    onClick={() => setPrintFormat(f.id)}
+                    title={f.hint}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              <p className="field-hint">
+                {thermal
+                  ? 'Thermal mode shows receipt options below. A4 templates stay saved for office printing.'
+                  : 'A4 mode shows full invoice templates. You can still print thermal from the Bills list.'}
+              </p>
+            </Field>
+
+            <Field label="Preview bill type" htmlFor="preview-doc">
+              <div className="theme-picker" id="preview-doc">
+                {DOC_TYPES.map((d) => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    className={`theme-chip${previewDocType === d.id ? ' active' : ''}`}
+                    onClick={() => setPreviewDocType(d.id)}
+                  >
+                    {d.label}
+                  </button>
+                ))}
               </div>
             </Field>
 
-            <div className="grid-2">
-              <Field label="Invoice title" htmlFor="inv-title">
+            {thermal ? (
+              <div className="branding-mode-banner branding-mode-thermal">
+                <strong>Thermal receipt settings</strong>
+                <p>
+                  Compact layout for {printFormat === 'THERMAL_58' ? '58mm' : '80mm'}{' '}
+                  printers — logo, shop name, GSTIN, and footer. Letterhead and
+                  A4 themes are not used on thermal prints.
+                </p>
+              </div>
+            ) : (
+              <div className="branding-mode-banner branding-mode-a4">
+                <strong>A4 invoice settings</strong>
+                <p>
+                  Full-page templates for tax invoices, credit notes, and debit
+                  notes. Choose a theme, header style, and colours below.
+                </p>
+              </div>
+            )}
+
+            {!thermal ? (
+              <>
+                <Field label="Invoice header style" htmlFor="header-mode">
+                  <div className="mode-picker" id="header-mode">
+                    <button
+                      type="button"
+                      className={`mode-card${headerMode === 'COMPOSED' ? ' active' : ''}`}
+                      onClick={() => setHeaderMode('COMPOSED')}
+                    >
+                      <strong>Compose logo + text</strong>
+                      <span>
+                        Upload a logo, align it, and write company details with
+                        the editor.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`mode-card${headerMode === 'LETTERHEAD' ? ' active' : ''}`}
+                      onClick={() => setHeaderMode('LETTERHEAD')}
+                    >
+                      <strong>Upload letterhead banner</strong>
+                      <span>
+                        Use a full-width designed letterhead image as the
+                        invoice top.
+                      </span>
+                    </button>
+                  </div>
+                </Field>
+
+                <div className="grid-2">
+                  <Field
+                    label="Tax invoice title"
+                    htmlFor="inv-title"
+                    hint="Credit / Debit notes use fixed Indian titles automatically."
+                  >
+                    <input
+                      id="inv-title"
+                      value={invoiceTitle}
+                      onChange={(e) => setInvoiceTitle(e.target.value)}
+                      placeholder="TAX INVOICE"
+                    />
+                  </Field>
+                  <Field label="Primary color" htmlFor="color">
+                    <input
+                      id="color"
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Invoice templates" htmlFor="inv-theme">
+                  <div
+                    className="theme-picker theme-picker-cards"
+                    id="inv-theme"
+                  >
+                    {THEMES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`theme-card${invoiceTheme === t.id ? ' active' : ''}`}
+                        onClick={() => setInvoiceTheme(t.id)}
+                      >
+                        <span className="theme-card-swatch" data-theme={t.id} />
+                        <strong>{t.label}</strong>
+                        <span>{t.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="field-hint">
+                    Templates style A4 tax invoices, credit notes, and debit
+                    notes.
+                  </p>
+                </Field>
+              </>
+            ) : (
+              <Field
+                label="Receipt title"
+                htmlFor="inv-title"
+                hint="Shown on thermal tax invoices. Credit / Debit notes use fixed titles."
+              >
                 <input
                   id="inv-title"
                   value={invoiceTitle}
@@ -148,71 +294,82 @@ export function BrandingPage() {
                   placeholder="TAX INVOICE"
                 />
               </Field>
-              <Field label="Primary color" htmlFor="color">
-                <input
-                  id="color"
-                  type="color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                />
-              </Field>
-            </div>
+            )}
 
-            <Field label="Invoice layout theme" htmlFor="inv-theme">
-              <div className="theme-picker" id="inv-theme">
-                {THEMES.map((t) => (
+            <Field
+              label="Theme font size"
+              htmlFor="font-size"
+              hint="Body text on printed invoices and receipts. Titles scale with this size."
+            >
+              <div className="font-size-control">
+                <input
+                  id="font-size"
+                  type="range"
+                  min={10}
+                  max={16}
+                  step={1}
+                  value={fontSizePx}
+                  onChange={(e) =>
+                    setFontSizePx(Number(e.target.value) || 12)
+                  }
+                />
+                <strong>{fontSizePx}px</strong>
+              </div>
+              <div className="theme-picker" style={{ marginTop: '0.5rem' }}>
+                {FONT_PRESETS.map((p) => (
                   <button
-                    key={t.id}
+                    key={p.px}
                     type="button"
-                    className={`theme-chip${invoiceTheme === t.id ? ' active' : ''}`}
-                    onClick={() => setInvoiceTheme(t.id)}
-                    title={t.hint}
+                    className={`theme-chip${fontSizePx === p.px ? ' active' : ''}`}
+                    onClick={() => setFontSizePx(p.px)}
                   >
-                    {t.label}
+                    {p.label}
                   </button>
                 ))}
               </div>
-              <p className="field-hint">
-                Themes style the title bar, tables, and totals on preview and
-                PDF.
-              </p>
             </Field>
 
-            {headerMode === 'COMPOSED' ? (
+            {thermal || headerMode === 'COMPOSED' ? (
               <>
-                <div className="grid-2">
-                  <Field label="Logo width (px)" htmlFor="logo-w">
-                    <input
-                      id="logo-w"
-                      type="number"
-                      min={40}
-                      max={200}
-                      value={logoWidthPx}
-                      onChange={(e) =>
-                        setLogoWidthPx(Number(e.target.value) || 72)
-                      }
-                    />
-                  </Field>
-                  <Field label="Logo / header align" htmlFor="logo-align">
-                    <select
-                      id="logo-align"
-                      value={logoAlign}
-                      onChange={(e) =>
-                        setLogoAlign(
-                          e.target.value as 'LEFT' | 'CENTER' | 'RIGHT',
-                        )
-                      }
-                    >
-                      <option value="LEFT">Left</option>
-                      <option value="CENTER">Center</option>
-                      <option value="RIGHT">Right</option>
-                    </select>
-                  </Field>
-                </div>
+                {!thermal ? (
+                  <div className="grid-2">
+                    <Field label="Logo width (px)" htmlFor="logo-w">
+                      <input
+                        id="logo-w"
+                        type="number"
+                        min={40}
+                        max={200}
+                        value={logoWidthPx}
+                        onChange={(e) =>
+                          setLogoWidthPx(Number(e.target.value) || 72)
+                        }
+                      />
+                    </Field>
+                    <Field label="Logo / header align" htmlFor="logo-align">
+                      <select
+                        id="logo-align"
+                        value={logoAlign}
+                        onChange={(e) =>
+                          setLogoAlign(
+                            e.target.value as 'LEFT' | 'CENTER' | 'RIGHT',
+                          )
+                        }
+                      >
+                        <option value="LEFT">Left</option>
+                        <option value="CENTER">Center</option>
+                        <option value="RIGHT">Right</option>
+                      </select>
+                    </Field>
+                  </div>
+                ) : null}
 
                 <ImageUploadField
-                  label="Company logo"
-                  hint="Shown with your header text. JPEG/PNG/WebP/SVG, up to 2MB"
+                  label={thermal ? 'Receipt logo (optional)' : 'Company logo'}
+                  hint={
+                    thermal
+                      ? 'Small logo centered on the receipt. JPEG/PNG/WebP/SVG, up to 2MB'
+                      : 'Shown with your header text. JPEG/PNG/WebP/SVG, up to 2MB'
+                  }
                   variant="logo"
                   previewUrl={logoUrl}
                   busy={uploadBusy === 'logo'}
@@ -238,12 +395,24 @@ export function BrandingPage() {
                   }}
                 />
 
-                <Field label="Header text" htmlFor="header-editor">
+                <Field
+                  label={thermal ? 'Shop name & address' : 'Header text'}
+                  htmlFor="header-editor"
+                  hint={
+                    thermal
+                      ? 'First line is used as the shop name on the receipt.'
+                      : undefined
+                  }
+                >
                   <RichTextEditor
                     id="header-editor"
                     value={headerHtml}
                     onChange={setHeaderHtml}
-                    placeholder="Company name, address, contact details…"
+                    placeholder={
+                      thermal
+                        ? 'Shop name, address, phone…'
+                        : 'Company name, address, contact details…'
+                    }
                   />
                 </Field>
               </>
@@ -263,7 +432,7 @@ export function BrandingPage() {
                 </Field>
                 <ImageUploadField
                   label="Letterhead / banner image"
-                  hint="Wide designed header (company letterhead). Replaces logo + text on invoices."
+                  hint="Wide designed header (company letterhead). Replaces logo + text on A4 invoices."
                   variant="banner"
                   previewUrl={bannerUrl}
                   busy={uploadBusy === 'banner'}
@@ -288,12 +457,6 @@ export function BrandingPage() {
                     }
                   }}
                 />
-                {!bannerUrl ? (
-                  <Alert>
-                    Upload a letterhead image to use this mode. Until then,
-                    preview falls back to compose layout.
-                  </Alert>
-                ) : null}
               </>
             )}
 
@@ -305,16 +468,25 @@ export function BrandingPage() {
                   onChange={(e) => setShowGstin(e.target.checked)}
                   style={{ width: 'auto', marginRight: '0.5rem' }}
                 />
-                Show GSTIN on invoice header
+                {thermal
+                  ? 'Show GSTIN on receipt'
+                  : 'Show GSTIN on invoice header'}
               </span>
             </label>
 
-            <Field label="Footer text" htmlFor="footer-editor">
+            <Field
+              label={thermal ? 'Receipt footer' : 'Footer text'}
+              htmlFor="footer-editor"
+            >
               <RichTextEditor
                 id="footer-editor"
                 value={footerHtml}
                 onChange={setFooterHtml}
-                placeholder="Terms, bank details, thank-you note…"
+                placeholder={
+                  thermal
+                    ? 'Thank you, return policy, WhatsApp number…'
+                    : 'Terms, bank details, thank-you note…'
+                }
               />
             </Field>
 
@@ -334,9 +506,12 @@ export function BrandingPage() {
           bannerUrl={bannerUrl}
           logoWidthPx={logoWidthPx}
           bannerHeightPx={bannerHeightPx}
+          fontSizePx={fontSizePx}
           logoAlign={logoAlign}
           invoiceTheme={invoiceTheme}
-          headerMode={headerMode}
+          headerMode={thermal ? 'COMPOSED' : headerMode}
+          printFormat={printFormat}
+          documentType={previewDocType}
         />
       </div>
     </>

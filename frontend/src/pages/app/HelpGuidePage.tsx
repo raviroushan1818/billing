@@ -341,8 +341,17 @@ const sections: GuideSection[] = [
           </dd>
           <dt>Need help from ISS?</dt>
           <dd>
-            Use the enquiry form on the public website, or contact your Indian
-            Software Services account manager with your Client ID.
+            Use the{' '}
+            <a href="/contact" target="_blank" rel="noreferrer">
+              Contact us
+            </a>{' '}
+            page (or the enquiry form on the public website), or contact your
+            Indian Software Services account manager with your Client ID. Read
+            our{' '}
+            <a href="/privacy" target="_blank" rel="noreferrer">
+              Privacy policy
+            </a>
+            .
           </dd>
         </dl>
       </>

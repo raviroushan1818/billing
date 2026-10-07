@@ -10,6 +10,8 @@ import { PlansPage } from './pages/platform/PlansPage';
 import { SubscriptionsPage } from './pages/platform/SubscriptionsPage';
 import { PaymentGatewayPage } from './pages/platform/PaymentGatewayPage';
 import { LandingPage } from './pages/LandingPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { ContactPage } from './pages/ContactPage';
 import { Dashboard } from './pages/app/Dashboard';
 import { NewBillPage } from './pages/app/NewBillPage';
 import { BillsPage } from './pages/app/BillsPage';
@@ -31,6 +33,7 @@ import { PurchasesPage } from './pages/app/PurchasesPage';
 import { EwayPage } from './pages/app/EwayPage';
 import { PosPage } from './pages/app/PosPage';
 import { HelpGuidePage } from './pages/app/HelpGuidePage';
+import { HmsSsoPage } from './pages/HmsSsoPage';
 import { APP_ROLES } from './auth/roles';
 
 export default function App() {
@@ -38,7 +41,10 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/hms-sso" element={<HmsSsoPage />} />
 
         <Route element={<RequireRole role="SUPER_ADMIN" />}>
           <Route path="/platform" element={<PlatformShell />}>

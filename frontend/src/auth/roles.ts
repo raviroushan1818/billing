@@ -96,6 +96,23 @@ export function actorDisplayName(actor?: {
   email?: string;
 } | null): string {
   if (!actor) return '—';
+  if (actor.email?.endsWith('@indhms.bridge')) {
+    return (actor.firstName || '').trim() || actor.email;
+  }
   const name = `${actor.firstName ?? ''} ${actor.lastName ?? ''}`.trim();
   return name || actor.email || '—';
+}
+
+/** Role badge text — IndHMS shadow users store hospital role in lastName. */
+export function actorRoleLabel(actor?: {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+} | null): string | null {
+  if (!actor) return null;
+  if (actor.email?.endsWith('@indhms.bridge') && actor.lastName) {
+    return actor.lastName;
+  }
+  return actor.role ? roleLabel(actor.role) : null;
 }
